@@ -406,8 +406,10 @@ Platzhalter sind MiniMessage-Tags. Deshalb gelten zwei Einschränkungen:
   Adventures Übersetzer `<arg>` und `<argument>` für indizierte Argumente.
 
   Reserviert ist genauer: jeder Name, den `StandardTags.defaults().has(name)` kennt, dazu `arg`, `argument`,
-  `prefix`, `content`, `count` und die Theme-Tags `p`, `highlight`, `success`, `deny`, `error`, `prompt`. Ausnahmen
-  der Prüfung: `count` ist in Plural-Einträgen erlaubt, `prefix` und `content` nur in Style-Templates.
+  `prefix`, `content`, `count` und die Theme-Tags `p`, `highlight`, `success`, `deny`, `error`, `prompt`, `h1`,
+  `h2`. Ausnahmen der Prüfung: `count` ist in Plural-Einträgen erlaubt, `prefix` und `content` nur in
+  Style-Templates. `h1` und `h2` sind neu reserviert: `arg("h1", …)` und `arg("h2", …)` werfen seitdem eine
+  `IllegalArgumentException`.
 
 Pantheon prüft beim Start und beim ersten Rendern auf beides und meldet Verstöße. `arg("targetName", …)` wirft sofort
 eine `IllegalArgumentException`.
@@ -475,16 +477,22 @@ Plugins hinweg.
 `DENY` und `ERROR` sind bewusst getrennt: `DENY` bedeutet „du darfst/kannst das nicht“, `ERROR` bedeutet „wir haben
 einen Fehler“. Ein `ERROR` ist immer ein Grund, ins Log zu schauen.
 
-**Theme-Tags und Sounds (Default).** Quelle der Sounds ist `MASTER`, Lautstärke 1, Tonhöhe 1.
+**Theme-Tags.** Ihre Styles legt der Node in `plugins/Pantheon/theme.yml` fest, für alle Plugins gleich
+([pantheon.md](pantheon.md#theme)). Plugins können sie nicht überschreiben, nur über `pantheon.theme()` lesen. Ohne
+Datei gelten diese Defaults:
 
-| Tag           | Farbe       |
-|---------------|-------------|
-| `<p>`         | `GRAY`      |
-| `<highlight>` | `GOLD`      |
-| `<success>`   | `GREEN`     |
-| `<deny>`      | `RED`       |
-| `<error>`     | `DARK_RED`  |
-| `<prompt>`    | `YELLOW`    |
+| Tag           | Default                     |
+|---------------|-----------------------------|
+| `<p>`         | `#d4d4d4`, nicht kursiv     |
+| `<highlight>` | `#fb923c`                   |
+| `<success>`   | `#7ef874`                   |
+| `<deny>`      | `#f87171`                   |
+| `<error>`     | `#dc2626`                   |
+| `<prompt>`    | `#fdba74`                   |
+| `<h1>`        | `#ffedd5`                   |
+| `<h2>`        | `#fdba74`                   |
+
+**Sounds (Default).** Quelle der Sounds ist `MASTER`, Lautstärke 1, Tonhöhe 1.
 
 | Type      | Sound                          |
 |-----------|--------------------------------|
@@ -854,7 +862,8 @@ Default-Sprache (`.component(lang.defaultLocale())`).
 - **`showTitle` statt `sendTitle`** am `PanPlayer`, passend zu Adventures `showTitle(Title)`.
 - **Pointer des `PanPlayer`:** `Identity.LOCALE` liefert `lang()` statt der Client-Sprache. So rendern auch fremde
   Adventure-Bausteine, die den Pointer lesen, in der Pantheon-Sprache.
-- **Theme-Farben, Sounds und Default-Prefix** wie in [§7](#7-message-types) angegeben.
+- **Theme aus der `theme.yml` des Nodes**, Defaults in [§7](#7-message-types), keine Overrides durch Plugins.
+- **Sounds und Default-Prefix** wie in [§7](#7-message-types) angegeben.
 - **Plural in v1:** `one` bei n == 1, sonst `other`, fehlende Formen fallen auf `other` zurück ([§5.4](#54-plural)).
 - **Reservierte Platzhalter:** alles, was `StandardTags.defaults()` kennt, dazu `arg`, `argument`, `prefix`, `content`,
   `count` und die Theme-Tags ([§5.5](#55-reservierte-namen)).

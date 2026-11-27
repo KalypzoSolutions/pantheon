@@ -251,7 +251,7 @@ class LanguageCheckTest {
         config.source(LanguageSource.pluginResources(), LanguageSource.dataFolder());
         LanguageImpl lang = LanguageBootstrap.create("lobby", config, new LanguageHooks(),
                 ResourceLister.ofDirectory(tmp.resolve("jar")), ResourceLister.ofDirectory(tmp.resolve("none")), data,
-                log);
+                log, () -> ThemeImpl.DEFAULT);
         Message bought = lang.message(ShopMessage.BOUGHT);
         assertThat(bought.plain(DE)).isEqualTo("Alt");
         assertThat(logged).anyMatch(l -> l.contains("shop.too-poor"));

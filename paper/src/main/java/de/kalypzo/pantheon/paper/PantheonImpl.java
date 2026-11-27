@@ -53,7 +53,8 @@ public final class PantheonImpl extends PluginScope implements Pantheon {
         // P-18/P-19: loads the files and runs the check for the enums registered so far
         this.language = LanguageBootstrap.create(name, languageConfig, runtime.languageHooks(),
                 PaperResourceLister.of(plugin.getClass()), runtime.pantheonResources(),
-                plugin.getDataFolder().toPath(), plugin.getLogger());
+                plugin.getDataFolder().toPath(), plugin.getLogger(),
+                () -> de.kalypzo.pantheon.core.language.ThemeImpl.DEFAULT);
         LanguageConfig checked = new CheckedLanguageConfig(languageConfig, language);
         this.config = () -> checked;
         this.players = new PaperPlayerService(runtime, this, language, this::languageOf);

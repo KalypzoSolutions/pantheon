@@ -100,7 +100,7 @@ final class MessageImpl implements Message {
         forEachRecipient(audiences, r -> {
             Component content = lang.renderer().render(key, r.locale(), r.audience(), args, count);
             r.audience().sendMessage(
-                    MessageStyles.apply(style.chat(), lang.prefix(r.locale(), r.audience()), content));
+                    MessageStyles.apply(lang.theme(), style.chat(), lang.prefix(r.locale(), r.audience()), content));
             playSound(r, style);
         });
     }
@@ -121,7 +121,7 @@ final class MessageImpl implements Message {
         forEachRecipient(audiences, r -> {
             Component content = lang.renderer().render(key, r.locale(), r.audience(), args, count);
             r.audience().sendActionBar(
-                    MessageStyles.apply(style.actionbar(), lang.prefix(r.locale(), r.audience()), content));
+                    MessageStyles.apply(lang.theme(), style.actionbar(), lang.prefix(r.locale(), r.audience()), content));
             playSound(r, style);
         });
     }
@@ -142,10 +142,10 @@ final class MessageImpl implements Message {
         forEachRecipient(audiences, r -> {
             Renderer.Titled t = lang.renderer().renderTitle(key, r.locale(), r.audience(), args, count);
             Component prefix = lang.prefix(r.locale(), r.audience());
-            Component title = MessageStyles.apply(style.title(), prefix, t.title());
+            Component title = MessageStyles.apply(lang.theme(), style.title(), prefix, t.title());
             Component subtitle = t.subtitle() == null
                     ? Component.empty()
-                    : MessageStyles.apply(style.subtitle(), prefix, t.subtitle());
+                    : MessageStyles.apply(lang.theme(), style.subtitle(), prefix, t.subtitle());
             r.audience().showTitle(times == null ? Title.title(title, subtitle) : Title.title(title, subtitle, times));
             playSound(r, style);
         });

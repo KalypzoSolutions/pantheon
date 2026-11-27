@@ -19,6 +19,7 @@ public final class LanguageImpl implements Language {
     private final LanguageHooks hooks;
     private final Supplier<Renderer> renderer;
     private final Runnable reloader;
+    private final Supplier<ThemeImpl> theme;
     private final RecipientExpander expander;
 
     /**
@@ -27,6 +28,13 @@ public final class LanguageImpl implements Language {
      */
     public LanguageImpl(String plugin, LanguageConfigImpl config, LanguageHooks hooks, Supplier<Renderer> renderer,
             Runnable reloader) {
+        this(plugin, config, hooks, renderer, reloader, () -> ThemeImpl.DEFAULT);
+    }
+
+    /** @param theme the node's theme for prefixes and style templates */
+    public LanguageImpl(String plugin, LanguageConfigImpl config, LanguageHooks hooks, Supplier<Renderer> renderer,
+            Runnable reloader, Supplier<ThemeImpl> theme) {
+        this.theme = theme;
         this.config = config;
         this.hooks = hooks;
         this.renderer = renderer;
@@ -84,12 +92,17 @@ public final class LanguageImpl implements Language {
         return expander;
     }
 
+    /** The node's theme. */
+    ThemeImpl theme() {
+        return theme.get();
+    }
+
     /** The prefix for a recipient: translated key, configured string, or the default. */
     Component prefix(Locale locale, Audience viewer) {
         MessageKey key = config.prefixKey();
         if (key != null) {
             return renderer().render(key, locale, viewer, List.of(), null);
         }
-        return MessageStyles.prefix(config.prefixTemplate());
+        return MessageStyles.prefix(theme(), config.prefixTemplate());
     }
 }

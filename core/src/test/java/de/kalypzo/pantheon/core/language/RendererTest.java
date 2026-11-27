@@ -1,5 +1,7 @@
 package de.kalypzo.pantheon.core.language;
 
+import net.kyori.adventure.text.format.Style;
+import de.kalypzo.pantheon.language.ThemeStyle;
 import static de.kalypzo.pantheon.language.Arg.arg;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -227,6 +229,32 @@ class RendererTest {
         assertThat(records).hasSize(1);
         renderer.render(MessageKey.of("nope"), EN, Audience.empty(), List.of(), null);
         assertThat(records).hasSize(2);
+    }
+
+    @Test
+    void customThemeIsUsed() {
+        text("k", "<highlight>x", "x");
+        ThemeImpl theme = ThemeImpl.of(java.util.Map.of(ThemeStyle.HIGHLIGHT,
+                Style.style(TextColor.color(0x123456))));
+        Renderer r = new Renderer("lobby", new LocaleResolver(Map.of(DE, de, EN, en)), adapters, logger,
+                () -> DE, () -> theme);
+        assertThat(r.render(MessageKey.of("k"), DE, Audience.empty(), List.of(), null).color())
+                .isEqualTo(TextColor.color(0x123456));
+    }
+
+    @Test
+    void themeSupplierIsReadPerRender() {
+        text("k", "<highlight>x", "x");
+        java.util.concurrent.atomic.AtomicReference<ThemeImpl> current =
+                new java.util.concurrent.atomic.AtomicReference<>(ThemeImpl.DEFAULT);
+        Renderer r = new Renderer("lobby", new LocaleResolver(Map.of(DE, de, EN, en)), adapters, logger,
+                () -> DE, current::get);
+        assertThat(r.render(MessageKey.of("k"), DE, Audience.empty(), List.of(), null).color())
+                .isEqualTo(TextColor.color(0xfb923c));
+        current.set(ThemeImpl.of(java.util.Map.of(ThemeStyle.HIGHLIGHT,
+                Style.style(TextColor.color(0x123456)))));
+        assertThat(r.render(MessageKey.of("k"), DE, Audience.empty(), List.of(), null).color())
+                .isEqualTo(TextColor.color(0x123456));
     }
 
     @Test

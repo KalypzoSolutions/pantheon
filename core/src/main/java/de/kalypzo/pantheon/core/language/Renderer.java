@@ -11,9 +11,7 @@ import java.util.logging.Logger;
 import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
-import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
-import net.kyori.adventure.text.minimessage.tag.standard.StandardTags;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -25,7 +23,6 @@ public final class Renderer {
     private static final Locale FALLBACK_LOCALE = Locale.of("de", "DE");
     private static final java.util.regex.Pattern LINE_BREAK =
             java.util.regex.Pattern.compile("(?i)<(?:newline|br)\\s*/?>");
-    private static final MiniMessage MINI = ThemeImpl.DEFAULT.miniMessage();
 
     private final String plugin;
     private final LocaleResolver resolver;
@@ -34,6 +31,7 @@ public final class Renderer {
     private final ArgResolvers args;
 
     private final java.util.function.Supplier<Locale> defaultLocale;
+    private final java.util.function.Supplier<ThemeImpl> theme;
 
     /** With {@code de_DE} as fallback language. */
     public Renderer(String plugin, LocaleResolver resolver, ArgAdapters adapters, Logger log) {
@@ -43,7 +41,17 @@ public final class Renderer {
     /** @param defaultLocale the configured default language, last step of the lookup */
     public Renderer(String plugin, LocaleResolver resolver, ArgAdapters adapters, Logger log,
             java.util.function.Supplier<Locale> defaultLocale) {
+        this(plugin, resolver, adapters, log, defaultLocale, () -> ThemeImpl.DEFAULT);
+    }
+
+    /**
+     * @param defaultLocale the configured default language, last step of the lookup
+     * @param theme the node's theme, read on every render
+     */
+    public Renderer(String plugin, LocaleResolver resolver, ArgAdapters adapters, Logger log,
+            java.util.function.Supplier<Locale> defaultLocale, java.util.function.Supplier<ThemeImpl> theme) {
         this.defaultLocale = defaultLocale;
+        this.theme = theme;
         this.plugin = plugin;
         this.resolver = resolver;
         this.log = log;
@@ -134,6 +142,6 @@ public final class Renderer {
         if (count != null) {
             b.resolver(ArgResolvers.number("count", count, locale));
         }
-        return MINI.deserialize(template, b.build());
+        return theme.get().miniMessage().deserialize(template, b.build());
     }
 }

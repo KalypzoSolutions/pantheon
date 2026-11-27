@@ -1,5 +1,6 @@
 package de.kalypzo.pantheon.core.language;
 
+import de.kalypzo.pantheon.language.ThemeStyle;
 import static de.kalypzo.pantheon.language.Arg.arg;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -165,6 +166,20 @@ class MessageBuilderTest {
         lang.message(OK).silent().actionbar(a);
         assertThat(a.messages()).hasSize(1);
         assertThat(a.sounds()).isEmpty();
+    }
+
+    @Test
+    void prefixAndTemplateUseTheme() {
+        ThemeImpl theme = ThemeImpl.of(Map.of(
+                ThemeStyle.HIGHLIGHT, Style.style(TextColor.color(0x123456)),
+                ThemeStyle.P, Style.style(TextColor.color(0x654321))));
+        Renderer renderer = new Renderer("lobby", new LocaleResolver(Map.of(DE, de, EN, en)), new ArgAdapters(),
+                Logger.getAnonymousLogger(), config::defaultLocale, () -> theme);
+        LanguageImpl themed = new LanguageImpl("lobby", config, hooks, () -> renderer, () -> {}, () -> theme);
+        RecordingAudience a = new RecordingAudience();
+        themed.message(HELLO).with("name", "x").send(a);
+        assertThat(colorOf(a.messages().get(0), "lobby")).contains(TextColor.color(0x123456));
+        assertThat(colorOf(a.messages().get(0), "Hallo ")).contains(TextColor.color(0x654321));
     }
 
     @Test
