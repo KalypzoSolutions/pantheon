@@ -1,0 +1,18 @@
+# smoke.untranslated is missing on purpose (P-28 checklist): the P-19 language check reports it at startup.
+smoke:
+  usage: "/pt coins [add N] | pay NAME N | msg NAME [TEXT] | where NAME | buy starter/vip | audit NAME [HOURS] | shop"
+  coins: "You have <highlight><coins></highlight> coins. Kits: <kits>"
+  coins-added: "Added <amount> coins (inc), balance <highlight><coins></highlight>."
+  pay:
+    sent: "You sent <player> <highlight><amount></highlight> coins."
+    received: "<player> sent you <highlight><amount></highlight> coins."
+    failed: "Transfer of <amount> coins refused: not enough coins."
+  msg:
+    sent: "To <player> (<server>): <body>"
+    received: "Message from <player>: <body>"
+  where: "<player> is on <highlight><server></highlight>, world <world>, <x> / <y> / <z>"
+  buy:
+    done: "Bought kit <highlight><kit></highlight> for <price> coins. Balance <highlight><coins></highlight>."
+    too-poor: "Kit <kit> costs <price> coins, you only have <coins>."
+    unknown-kit: "Unknown kit <kit>. Available: <kits>"
+  failed: "Failed: <reason>"

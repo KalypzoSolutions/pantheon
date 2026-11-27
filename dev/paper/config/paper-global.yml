@@ -1,0 +1,7 @@
+# P-28: copied by the itzg image from /config to /data/config on every start; Paper fills in all other defaults.
+# Modern forwarding from Velocity, same secret as dev/velocity/forwarding.secret.
+proxies:
+  velocity:
+    enabled: true
+    online-mode: false
+    secret: 'dev-forwarding-secret-p28'

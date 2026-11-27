@@ -1,0 +1,4 @@
+shop:
+  bought: "Gekauft: <price>"
+  too-poor: "Zu arm"
+  old-banner: "alt"

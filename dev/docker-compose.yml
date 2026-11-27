@@ -1,0 +1,138 @@
+# P-28: local E2E network for the manual smoke test. See dev/README.md.
+#   postgres -> agora -> proxy-01, proxy-02 (Velocity), lobby-01, lobby-02 (Paper)
+# Rollout order (R49): Agora must be healthy before any Pantheon node starts.
+# Build first: ./gradlew build (Pantheon) and ./gradlew :agora-server:jibDockerBuild (Agora).
+name: pantheon-dev
+
+x-paper: &paper
+  image: itzg/minecraft-server:java25
+  restart: "no"
+  depends_on:
+    agora:
+      condition: service_healthy
+  environment: &paper-env
+    EULA: "TRUE" # accepted by the user for this dev network (https://aka.ms/MinecraftEULA)
+    TYPE: PAPER
+    VERSION: "26.3"
+    MEMORY: 1G
+    ONLINE_MODE: "FALSE" # Velocity authenticates; modern forwarding, see paper/config/paper-global.yml
+    LEVEL_TYPE: minecraft:flat
+    GENERATOR_SETTINGS: >-
+      {"layers":[{"block":"minecraft:bedrock","height":1},{"block":"minecraft:dirt","height":2},{"block":"minecraft:grass_block","height":1}],"biome":"minecraft:plains"}
+    DIFFICULTY: peaceful
+    MODE: survival
+    SPAWN_PROTECTION: "0"
+    VIEW_DISTANCE: "6"
+    SIMULATION_DISTANCE: "4"
+    ALLOW_NETHER: "FALSE"
+    ENABLE_RCON: "TRUE"
+    OPS: ""
+    PANTHEON_AGORA_ADDRESS: agora:9090
+    PANTHEON_BACKEND: agora
+    PANTHEON_LOGIN_TIMEOUT_MS: "5000"
+  stop_grace_period: 60s # Pantheon flushes for at most 10 s, the rest goes to the outbox (P-26)
+
+x-proxy: &proxy
+  image: itzg/mc-proxy:java25
+  restart: "no"
+  depends_on:
+    agora:
+      condition: service_healthy
+  environment: &proxy-env
+    TYPE: VELOCITY
+    VERSION: "4.3.1"
+    MEMORY: 512m
+    ENABLE_RCON: "FALSE"
+    PANTHEON_AGORA_ADDRESS: agora:9090
+  volumes: &proxy-volumes
+    - ./velocity/velocity.toml:/config/velocity.toml:ro
+    - ./velocity/forwarding.secret:/config/forwarding.secret:ro
+    - ../velocity/build/libs/pantheon-velocity.jar:/plugins/pantheon-velocity.jar:ro
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: agora
+      POSTGRES_USER: agora
+      POSTGRES_PASSWORD: agora
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agora -d agora"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  agora:
+    image: agora:0.1.0-SNAPSHOT
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      AGORA_PORT: "9090"
+      AGORA_DB_URL: jdbc:postgresql://postgres:5432/agora
+      AGORA_DB_USER: agora
+      AGORA_DB_PASSWORD: agora
+      AGORA_TOKENS_FILE: /etc/agora/tokens.txt
+      AGORA_PAPER_WELCOME_DELAY_MS: "15000" # E11 default, spelled out
+    volumes:
+      - ./agora/tokens.txt:/etc/agora/tokens.txt:ro
+    healthcheck: # the JRE image has bash: port open = gRPC server listening
+      test: ["CMD", "bash", "-c", "</dev/tcp/127.0.0.1/9090"]
+      interval: 2s
+      timeout: 3s
+      retries: 60
+      start_period: 5s
+    stop_grace_period: 20s
+
+  proxy-01:
+    <<: *proxy
+    environment:
+      <<: *proxy-env
+      PANTHEON_NODE_ID: proxy-01
+      PANTHEON_AGORA_TOKEN: dev-token-proxy-01
+    volumes: *proxy-volumes
+    ports:
+      - "25565:25577"
+
+  proxy-02:
+    <<: *proxy
+    environment:
+      <<: *proxy-env
+      PANTHEON_NODE_ID: proxy-02
+      PANTHEON_AGORA_TOKEN: dev-token-proxy-02
+    volumes: *proxy-volumes
+    ports:
+      - "25566:25577"
+
+  lobby-01:
+    <<: *paper
+    environment:
+      <<: *paper-env
+      MOTD: lobby-01
+      PANTHEON_NODE_ID: lobby-01
+      PANTHEON_AGORA_TOKEN: dev-token-lobby-01
+    volumes:
+      - lobby-01-data:/data
+      - ./paper/config:/config:ro
+      - ../paper/build/libs/pantheon-paper.jar:/plugins/pantheon-paper.jar:ro
+      - ./smoke-plugin/build/libs/pantheon-smoke.jar:/plugins/pantheon-smoke.jar:ro
+
+  lobby-02:
+    <<: *paper
+    environment:
+      <<: *paper-env
+      MOTD: lobby-02
+      PANTHEON_NODE_ID: lobby-02
+      PANTHEON_AGORA_TOKEN: dev-token-lobby-02
+    volumes:
+      - lobby-02-data:/data
+      - ./paper/config:/config:ro
+      - ../paper/build/libs/pantheon-paper.jar:/plugins/pantheon-paper.jar:ro
+      - ./smoke-plugin/build/libs/pantheon-smoke.jar:/plugins/pantheon-smoke.jar:ro
+
+volumes:
+  postgres-data:
+  lobby-01-data:
+  lobby-02-data:

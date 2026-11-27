@@ -1,0 +1,56 @@
+[versions]
+paper-api = "26.3.build.258-stable"
+# The build MockBukkit 4.124.0 was made for (its manifest: Paper-Version); newer builds add registries it lacks.
+paper-api-mockbukkit = "26.3.build.200-stable"
+velocity-api = "4.3.1"
+run-paper = "3.0.2"
+shadow = "9.6.1"
+
+# SDK / gRPC
+grpc = "1.74.0"
+protobuf = "3.25.5"
+snakeyaml = "2.7"
+sqlite-jdbc = "3.54.1.0"
+jspecify = "1.0.1"
+adventure = "5.2.0"
+
+# Tests
+junit-bom = "6.1.2"
+mockbukkit = "4.124.0"
+assertj = "3.27.3"
+archunit = "1.5.1"
+awaitility = "4.3.0"
+testcontainers = "2.0.5"
+
+[libraries]
+paper-api = { module = "io.papermc.paper:paper-api", version.ref = "paper-api" }
+paper-api-mockbukkit = { module = "io.papermc.paper:paper-api", version.ref = "paper-api-mockbukkit" }
+velocity-api = { module = "com.velocitypowered:velocity-api", version.ref = "velocity-api" }
+grpc-netty-shaded = { module = "io.grpc:grpc-netty-shaded", version.ref = "grpc" }
+grpc-protobuf = { module = "io.grpc:grpc-protobuf", version.ref = "grpc" }
+grpc-inprocess = { module = "io.grpc:grpc-inprocess", version.ref = "grpc" }
+grpc-stub = { module = "io.grpc:grpc-stub", version.ref = "grpc" }
+protobuf-java = { module = "com.google.protobuf:protobuf-java", version.ref = "protobuf" }
+snakeyaml = { module = "org.yaml:snakeyaml", version.ref = "snakeyaml" }
+sqlite-jdbc = { module = "org.xerial:sqlite-jdbc", version.ref = "sqlite-jdbc" }
+jspecify = { module = "org.jspecify:jspecify", version.ref = "jspecify" }
+
+adventure-api = { module = "net.kyori:adventure-api", version.ref = "adventure" }
+adventure-text-minimessage = { module = "net.kyori:adventure-text-minimessage", version.ref = "adventure" }
+adventure-text-serializer-gson = { module = "net.kyori:adventure-text-serializer-gson", version.ref = "adventure" }
+adventure-text-serializer-plain = { module = "net.kyori:adventure-text-serializer-plain", version.ref = "adventure" }
+
+junit-bom = { module = "org.junit:junit-bom", version.ref = "junit-bom" }
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
+assertj-core = { module = "org.assertj:assertj-core", version.ref = "assertj" }
+archunit-junit5 = { module = "com.tngtech.archunit:archunit-junit5", version.ref = "archunit" }
+awaitility = { module = "org.awaitility:awaitility", version.ref = "awaitility" }
+mockbukkit = { module = "org.mockbukkit.mockbukkit:mockbukkit-v26.3", version.ref = "mockbukkit" }
+testcontainers-bom = { module = "org.testcontainers:testcontainers-bom", version.ref = "testcontainers" }
+testcontainers-junit-jupiter = { module = "org.testcontainers:testcontainers-junit-jupiter" }
+testcontainers-postgresql = { module = "org.testcontainers:testcontainers-postgresql" }
+
+[plugins]
+shadow = { id = "com.gradleup.shadow", version.ref = "shadow" }
+run-paper = { id = "xyz.jpenilla.run-paper", version.ref = "run-paper" }

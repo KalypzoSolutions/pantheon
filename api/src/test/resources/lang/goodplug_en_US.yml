@@ -1,0 +1,5 @@
+shop:
+  bought: "Bought: <price>"
+  too-poor: "Too poor"
+kit:
+  warrior.name: "Warrior"

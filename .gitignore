@@ -1,0 +1,15 @@
+# Ignore Gradle project-specific cache directory
+.gradle
+# Ignore Gradle build output directory
+build
+# Ignore Kotlin plugin data
+.kotlin
+.idea
+.claude
+docs/superpowers
+
+# P-28 dev network: never commit server jars, world data or logs (worlds live in Docker volumes)
+dev/**/data/
+dev/**/logs/
+dev/**/*.jar
+

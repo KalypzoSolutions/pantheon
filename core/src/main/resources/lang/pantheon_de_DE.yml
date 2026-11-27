@@ -1,0 +1,19 @@
+pantheon:
+  no-permission: "Dazu hast du keine Berechtigung."
+  player-not-found: "Spieler <name> wurde nicht gefunden."
+  players-only: "Das können nur Spieler."
+  data-unavailable: "Die Spielerdaten sind gerade nicht erreichbar. Bitte versuche es gleich noch einmal."
+  click-to-confirm: "<highlight>[Bestätigen]"
+  time:
+    day:
+      one: "<count> Tag"
+      other: "<count> Tage"
+    hour:
+      one: "<count> Stunde"
+      other: "<count> Stunden"
+    minute:
+      one: "<count> Minute"
+      other: "<count> Minuten"
+    second:
+      one: "<count> Sekunde"
+      other: "<count> Sekunden"

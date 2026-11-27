@@ -1,0 +1,18 @@
+smoke:
+  usage: "/pt coins [add N] | pay NAME N | msg NAME [TEXT] | where NAME | buy starter/vip | audit NAME [STUNDEN] | shop"
+  coins: "Du hast <highlight><coins></highlight> Münzen. Kits: <kits>"
+  coins-added: "<amount> Münzen gutgeschrieben (inc), Kontostand <highlight><coins></highlight>."
+  pay:
+    sent: "Du hast <player> <highlight><amount></highlight> Münzen überwiesen."
+    received: "<player> hat dir <highlight><amount></highlight> Münzen überwiesen."
+    failed: "Überweisung von <amount> Münzen abgelehnt: zu wenig Münzen."
+  msg:
+    sent: "An <player> (<server>): <body>"
+    received: "Nachricht von <player>: <body>"
+  where: "<player> ist auf <highlight><server></highlight>, Welt <world>, <x> / <y> / <z>"
+  buy:
+    done: "Kit <highlight><kit></highlight> für <price> Münzen gekauft. Kontostand <highlight><coins></highlight>."
+    too-poor: "Kit <kit> kostet <price> Münzen, du hast nur <coins>."
+    unknown-kit: "Unbekanntes Kit <kit>. Verfügbar: <kits>"
+  failed: "Fehlgeschlagen: <reason>"
+  untranslated: "Dieser Text fehlt absichtlich in der englischen Datei."

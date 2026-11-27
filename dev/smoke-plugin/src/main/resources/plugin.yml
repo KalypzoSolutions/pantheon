@@ -1,0 +1,10 @@
+name: PantheonSmoke
+version: '${version}'
+main: de.kalypzo.pantheon.smoke.SmokePlugin
+api-version: '26.3'
+depend: [Pantheon]
+description: Dev-only smoke test for Pantheon (P-28). Never deploy to production.
+commands:
+  pt:
+    description: Pantheon smoke test
+    usage: /pt coins [add <n>] | pay <name> <n> | msg <name> [text] | where <name> | buy <kit> | audit <name> [hours] | shop

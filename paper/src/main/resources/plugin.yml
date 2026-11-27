@@ -1,0 +1,4 @@
+name: Pantheon
+version: '${version}'
+main: de.kalypzo.pantheon.paper.PantheonPlugin
+api-version: '26.3'

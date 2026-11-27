@@ -1,0 +1,5 @@
+# P-28 dev network only (E20: node_id=token). These tokens are public test values, never use them in production.
+proxy-01=dev-token-proxy-01
+proxy-02=dev-token-proxy-02
+lobby-01=dev-token-lobby-01
+lobby-02=dev-token-lobby-02
