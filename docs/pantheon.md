@@ -71,6 +71,37 @@ Umgebungsvariablen:
 - `pantheon.config()` bietet keinen Setter für Adresse oder Token. Ein Plugin kann die Verbindung also weder ändern
   noch auslesen.
 
+#### Theme
+Zweite Ausnahme von configure-by-code: Das Theme gehört dem Node, nicht dem Plugin. Alle Plugins auf einem Server
+rendern ihre Theme-Tags (`<p>`, `<highlight>`, `<success>`, `<deny>`, `<error>`, `<prompt>`, `<h1>`, `<h2>`) mit
+`plugins/Pantheon/theme.yml`. Fehlt die Datei, schreibt Pantheon beim Start die Defaults hinein
+([language.md §7](language.md#7-message-types)). Für ein einheitliches Bild muss die Datei auf allen Servern gleich
+sein, denn gerendert wird auf dem sendenden Server.
+
+```yaml
+styles:
+  p:
+    color: "#d4d4d4"
+    italic: false
+  success: "#7ef874"     # Kurzform: nur Farbe
+  h1:
+    color: "#ffedd5"
+    bold: true
+```
+
+- Pro Tag ein String (Farbe) oder ein Objekt mit `color`, `bold`, `italic`, `underlined`, `strikethrough`,
+  `obfuscated`. Farben sind `"#rrggbb"` oder ein Minecraft-Name wie `gray`.
+- **Hex-Werte in Anführungszeichen.** In YAML beginnt mit `#` ein Kommentar, `success: #7ef874` hat also keinen Wert.
+- **Ergänzen statt ersetzen:** Was ein Eintrag weglässt, kommt vom Default. Eine Dekoration des Defaults schaltet
+  `false` ab.
+- **Fehler:** Ein ungültiger Eintrag fällt komplett auf seinen Default zurück, unbekannte Tags und Schlüssel werden
+  ignoriert, jeweils mit `WARNING`. Ist die Datei kein gültiges YAML, gelten alle Defaults (`SEVERE`). Am Theme
+  scheitert nie ein Start.
+- Gelesen wird nur beim Start. Danach steht `Theme <hash>` im Log. Ein abweichender Hash zeigt einen Server mit
+  anderer Datei.
+- Aus Code: `pantheon.theme().style(ThemeStyle.H1)` bzw. `.color(...)`, etwa für selbst gebaute Components. Ändern
+  kann ein Plugin das Theme nicht.
+
 ### Audit-Log
 Plugins schreiben Einträge pro Spieler mit `player.audit().action(...)`, `pantheon.audit()` liefert Spieler-Handles für
 Offline-Spieler, versteckte Commands und das Lesen der Zeitachse. Pantheon puffert die Einträge pro Node, schickt sie

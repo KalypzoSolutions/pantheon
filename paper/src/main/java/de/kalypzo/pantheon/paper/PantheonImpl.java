@@ -54,10 +54,15 @@ public final class PantheonImpl extends PluginScope implements Pantheon {
         this.language = LanguageBootstrap.create(name, languageConfig, runtime.languageHooks(),
                 PaperResourceLister.of(plugin.getClass()), runtime.pantheonResources(),
                 plugin.getDataFolder().toPath(), plugin.getLogger(),
-                () -> de.kalypzo.pantheon.core.language.ThemeImpl.DEFAULT);
+                runtime::theme);
         LanguageConfig checked = new CheckedLanguageConfig(languageConfig, language);
         this.config = () -> checked;
         this.players = new PaperPlayerService(runtime, this, language, this::languageOf);
+    }
+
+    @Override
+    public de.kalypzo.pantheon.language.Theme theme() {
+        return runtime.theme();
     }
 
     /** The language of a player: the provider the plugin configured, the default language for the marker. */

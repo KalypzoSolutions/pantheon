@@ -34,6 +34,9 @@ public interface Pantheon {
 
     PantheonConfig config();
 
+    /** The theme of this node from {@code plugins/Pantheon/theme.yml}. The same for every plugin, read only. */
+    de.kalypzo.pantheon.language.Theme theme();
+
     /** Runs tasks on the server main thread. */
     Executor mainThread();
 }
