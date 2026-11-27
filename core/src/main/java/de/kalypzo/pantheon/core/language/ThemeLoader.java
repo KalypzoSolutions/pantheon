@@ -85,6 +85,12 @@ public final class ThemeLoader {
             log.severe("theme.yml must be a map with 'styles', using the default theme");
             return ThemeImpl.DEFAULT;
         }
+        for (Object key : map.keySet()) {
+            if (!"styles".equals(key)) {
+                log.warning("theme.yml: unknown top-level key '" + key + "' ignored (tags belong indented under"
+                        + " 'styles:')");
+            }
+        }
         Object styles = map.get("styles");
         if (styles == null) {
             return ThemeImpl.DEFAULT;

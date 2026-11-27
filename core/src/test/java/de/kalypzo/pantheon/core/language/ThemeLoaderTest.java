@@ -131,6 +131,15 @@ class ThemeLoaderTest {
     }
 
     @Test
+    void unindentedOrMisspelledRootIsWarned() {
+        assertThat(parse("styles:\nsuccess: \"#00ff00\"\n").hash()).isEqualTo(ThemeImpl.DEFAULT.hash());
+        assertThat(at(Level.WARNING)).anyMatch(r -> r.getMessage().contains("success"));
+        records.clear();
+        parse("style:\n  success: \"#00ff00\"\n");
+        assertThat(at(Level.WARNING)).anyMatch(r -> r.getMessage().contains("style"));
+    }
+
+    @Test
     void emptyFileIsDefaultWithoutSevere() {
         assertThat(parse("").hash()).isEqualTo(ThemeImpl.DEFAULT.hash());
         assertThat(parse("# nur Kommentar\n").hash()).isEqualTo(ThemeImpl.DEFAULT.hash());
