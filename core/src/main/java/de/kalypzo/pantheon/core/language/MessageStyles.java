@@ -16,9 +16,7 @@ import org.jspecify.annotations.Nullable;
 /** Templates and sounds of message types (language.md §7, E16). */
 public final class MessageStyles {
 
-    private static final MiniMessage MINI = MiniMessage.builder()
-            .tags(TagResolver.resolver(StandardTags.defaults(), ThemeTags.RESOLVER))
-            .build();
+    private static final MiniMessage MINI = ThemeImpl.DEFAULT.miniMessage();
 
     private static final Map<MessageType, Overrides> BUILTIN = Map.of(
             MessageType.PLAIN, builtin("<content>", "<content>", "<content>", null),

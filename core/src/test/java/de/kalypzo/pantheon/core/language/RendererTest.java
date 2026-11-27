@@ -21,6 +21,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.minimessage.tag.resolver.Formatter;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.junit.jupiter.api.BeforeEach;
@@ -230,12 +231,13 @@ class RendererTest {
 
     @Test
     void themeTagsApplyColors() {
-        text("k", "<p>a</p><highlight>b</highlight><success>c</success><deny>d</deny><error>e</error><prompt>f</prompt>",
-                "x");
+        text("k", "<p>a</p><highlight>b</highlight><success>c</success><deny>d</deny><error>e</error><prompt>f</prompt>"
+                + "<h1>g</h1><h2>h</h2>", "x");
         Component c = renderer.render(MessageKey.of("k"), DE, Audience.empty(), List.of(), null);
         assertThat(c.children()).extracting(Component::color).containsExactly(
-                NamedTextColor.GRAY, NamedTextColor.GOLD, NamedTextColor.GREEN,
-                NamedTextColor.RED, NamedTextColor.DARK_RED, NamedTextColor.YELLOW);
+                TextColor.color(0xd4d4d4), TextColor.color(0xfb923c), TextColor.color(0x7ef874),
+                TextColor.color(0xf87171), TextColor.color(0xdc2626), TextColor.color(0xfdba74),
+                TextColor.color(0xffedd5), TextColor.color(0xfdba74));
         assertThat(ThemeTags.defaultPrefix("Lobby")).isEqualTo("<highlight>Lobby</highlight><dark_gray> »</dark_gray>");
     }
 

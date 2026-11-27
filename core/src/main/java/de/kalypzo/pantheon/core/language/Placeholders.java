@@ -15,12 +15,12 @@ import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 public final class Placeholders {
 
     private static final Pattern TAG = Pattern.compile("<(/?)(!?)([A-Za-z0-9_-]+)((?::[^<>]*)?)>");
-    private static final Set<String> THEME = Set.of("p", "highlight", "success", "deny", "error", "prompt");
+    private static final Set<String> THEME = java.util.Arrays.stream(de.kalypzo.pantheon.language.ThemeStyle.values())
+            .map(de.kalypzo.pantheon.language.ThemeStyle::tagName)
+            .collect(java.util.stream.Collectors.toUnmodifiableSet());
     /** Reserved in every message file, whatever their arguments (R17). */
     private static final Set<String> ALWAYS_RESERVED = Set.of("arg", "argument", "prefix", "content");
-    private static final MiniMessage MINI = MiniMessage.builder()
-            .tags(TagResolver.resolver(StandardTags.defaults(), ThemeTags.RESOLVER))
-            .build();
+    private static final MiniMessage MINI = ThemeImpl.DEFAULT.miniMessage();
     private static final java.util.Map<String, Boolean> BARE_OK = new ConcurrentHashMap<>();
 
     private Placeholders() {}

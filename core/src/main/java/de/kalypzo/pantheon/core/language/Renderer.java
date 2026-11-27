@@ -25,9 +25,7 @@ public final class Renderer {
     private static final Locale FALLBACK_LOCALE = Locale.of("de", "DE");
     private static final java.util.regex.Pattern LINE_BREAK =
             java.util.regex.Pattern.compile("(?i)<(?:newline|br)\\s*/?>");
-    private static final MiniMessage MINI = MiniMessage.builder()
-            .tags(TagResolver.resolver(StandardTags.defaults(), ThemeTags.RESOLVER))
-            .build();
+    private static final MiniMessage MINI = ThemeImpl.DEFAULT.miniMessage();
 
     private final String plugin;
     private final LocaleResolver resolver;
