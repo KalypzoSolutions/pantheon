@@ -170,6 +170,11 @@ class LanguageCheckTest {
     }
 
     @Test
+    void headingTagsAreNotPlaceholders() {
+        assertThat(Placeholders.of("<h1>a</h1><h2>b</h2> <name>")).containsExactly("name");
+    }
+
+    @Test
     void standardAndThemeTagsAreNotPlaceholders() {
         assertThat(Placeholders.of("<red>a</red> <b>b</b> <p>c <highlight>d <success>e <deny>f <error>g <prompt>h "
                 + "<gradient:red:blue>i <hover:show_text:'x'>j <newline><reset> <price> <kit-name>"))
@@ -246,7 +251,7 @@ class LanguageCheckTest {
         config.source(LanguageSource.pluginResources(), LanguageSource.dataFolder());
         LanguageImpl lang = LanguageBootstrap.create("lobby", config, new LanguageHooks(),
                 ResourceLister.ofDirectory(tmp.resolve("jar")), ResourceLister.ofDirectory(tmp.resolve("none")), data,
-                log);
+                log, () -> ThemeImpl.DEFAULT);
         Message bought = lang.message(ShopMessage.BOUGHT);
         assertThat(bought.plain(DE)).isEqualTo("Alt");
         assertThat(logged).anyMatch(l -> l.contains("shop.too-poor"));

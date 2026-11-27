@@ -16,18 +16,21 @@ public final class LanguageBootstrap {
 
     /**
      * @param log the plugin's logger; the check logs at WARNING
+     * @param theme the node's theme
      */
     public static LanguageImpl create(String plugin, LanguageConfigImpl config, LanguageHooks hooks,
-            ResourceLister resources, ResourceLister pantheonResources, Path dataFolder, Logger log) {
+            ResourceLister resources, ResourceLister pantheonResources, Path dataFolder, Logger log,
+            java.util.function.Supplier<ThemeImpl> theme) {
         AtomicReference<Renderer> current = new AtomicReference<>();
         Runnable load = () -> {
             Map<Locale, Map<String, LanguageEntry>> files =
                     LanguageFiles.discover(plugin, config.sources(), resources, pantheonResources, dataFolder);
-            current.set(new Renderer(plugin, new LocaleResolver(files), config.adapters(), log, config::defaultLocale));
+            current.set(new Renderer(plugin, new LocaleResolver(files), config.adapters(), log, config::defaultLocale,
+                    theme));
             CheckReport report = LanguageCheck.check(plugin, files, config.registered(), config.styles(), java.util.Set.of());
             report.logLines().forEach(log::warning);
         };
         load.run();
-        return new LanguageImpl(plugin, config, hooks, current::get, load);
+        return new LanguageImpl(plugin, config, hooks, current::get, load, theme);
     }
 }

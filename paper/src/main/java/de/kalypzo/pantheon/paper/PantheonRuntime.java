@@ -75,6 +75,7 @@ public final class PantheonRuntime implements AutoCloseable {
     private final TraceRegistry traces;
     private final HiddenCommands hiddenCommands;
     private final PaperAuditService audit;
+    private final de.kalypzo.pantheon.core.language.ThemeImpl theme;
 
     public PantheonRuntime(JavaPlugin plugin, BootstrapResult.Started started, MainThreadExecutor mainThread) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
@@ -85,6 +86,13 @@ public final class PantheonRuntime implements AutoCloseable {
         this.hiddenCommands = new HiddenCommands(new PaperCommandResolver(plugin.getServer()));
         this.auditBuffer = new AuditBuffer(started.backend(), started.scheduler(), started.clock(), started.log());
         this.audit = new PaperAuditService(auditBuffer, traces, hiddenCommands, started.backend(), started.clock());
+        this.theme = de.kalypzo.pantheon.core.language.ThemeLoader.load(
+                plugin.getDataFolder().toPath().resolve("theme.yml"), plugin.getLogger());
+    }
+
+    /** The node's theme, read once at startup. */
+    public de.kalypzo.pantheon.core.language.ThemeImpl theme() {
+        return theme;
     }
 
     /** The node's one audit buffer (audit §7). */

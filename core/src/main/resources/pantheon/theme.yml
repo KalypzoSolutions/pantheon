@@ -1,0 +1,23 @@
+# Pantheon theme: the styles of the theme tags (<p>, <highlight>, ...) for every plugin on this server.
+# Keep this file the same on every server of the network. Read once at startup.
+#
+# Per tag either a color (short form) or an object:
+#   success: "#7ef874"
+#   p:
+#     color: "#d4d4d4"
+#     italic: false        # bold, italic, underlined, strikethrough, obfuscated
+#
+# Colors are "#rrggbb" or a Minecraft name (gray, dark_red, ...).
+# Put hex colors in quotes: in YAML an unquoted # starts a comment.
+# Whatever a tag leaves out comes from the default; an invalid entry falls back to its default.
+styles:
+  p:
+    color: "#d4d4d4"
+    italic: false
+  highlight: "#fb923c"
+  success: "#7ef874"
+  deny: "#f87171"
+  error: "#dc2626"
+  prompt: "#fdba74"
+  h1: "#ffedd5"
+  h2: "#fdba74"

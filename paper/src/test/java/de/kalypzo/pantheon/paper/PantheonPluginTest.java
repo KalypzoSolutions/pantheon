@@ -7,6 +7,8 @@ import de.kalypzo.pantheon.Pantheon;
 import de.kalypzo.pantheon.data.DataNamespace;
 import de.kalypzo.pantheon.data.Field;
 import de.kalypzo.pantheon.language.CommonMessage;
+import de.kalypzo.pantheon.language.ThemeStyle;
+import net.kyori.adventure.text.format.TextColor;
 import de.kalypzo.pantheon.spi.PantheonProvider;
 import de.kalypzo.pantheon.core.data.wire.StoreRef;
 import java.time.Duration;
@@ -151,6 +153,32 @@ class PantheonPluginTest {
     private java.util.Collection<StoreRef> watched() {
         return ((PantheonPlugin) server.getPluginManager().getPlugin("Pantheon")).runtime().started().stores()
                 .watchedStores();
+    }
+
+    @Test
+    void writesDefaultThemeAndExposesIt() {
+        PantheonPlugin pantheon = load(Map.of("PANTHEON_BACKEND", "memory"));
+        assertThat(pantheon.getDataFolder().toPath().resolve("theme.yml")).exists();
+        JavaPlugin lobby = MockBukkit.createMockPlugin("Lobby");
+        assertThat(Pantheon.get(lobby).theme().color(ThemeStyle.HIGHLIGHT)).isEqualTo(TextColor.color(0xfb923c));
+    }
+
+    @Test
+    void readsExistingThemeFile() throws Exception {
+        PluginDescriptionFile description;
+        try (var in = PantheonPlugin.class.getResourceAsStream("/plugin.yml")) {
+            description = new PluginDescriptionFile(in);
+        }
+        java.io.File folder = server.getPluginManager()
+                .createTemporaryDirectory(description.getName() + "-" + description.getVersion());
+        java.nio.file.Files.writeString(folder.toPath().resolve("theme.yml"), "styles:\n  highlight: \"#123456\"\n");
+
+        PantheonPlugin pantheon = load(Map.of("PANTHEON_BACKEND", "memory"));
+        assertThat(pantheon.getDataFolder()).isEqualTo(folder);
+        Pantheon lobby = Pantheon.get(MockBukkit.createMockPlugin("Lobby"));
+        Pantheon shop = Pantheon.get(MockBukkit.createMockPlugin("Shop"));
+        assertThat(lobby.theme().color(ThemeStyle.HIGHLIGHT)).isEqualTo(TextColor.color(0x123456));
+        assertThat(shop.theme()).isSameAs(lobby.theme());
     }
 
     private PantheonPlugin load(Map<String, String> env) {

@@ -1,20 +1,7 @@
 package de.kalypzo.pantheon.core.language;
 
-import net.kyori.adventure.text.format.NamedTextColor;
-import net.kyori.adventure.text.minimessage.tag.Tag;
-import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
-
-/** Pantheon's theme tags (E16). */
+/** Pantheon's default prefix. The theme tags themselves live in {@link ThemeImpl}. */
 public final class ThemeTags {
-
-    public static final TagResolver RESOLVER = TagResolver.builder()
-            .tag("p", Tag.styling(NamedTextColor.GRAY))
-            .tag("highlight", Tag.styling(NamedTextColor.GOLD))
-            .tag("success", Tag.styling(NamedTextColor.GREEN))
-            .tag("deny", Tag.styling(NamedTextColor.RED))
-            .tag("error", Tag.styling(NamedTextColor.DARK_RED))
-            .tag("prompt", Tag.styling(NamedTextColor.YELLOW))
-            .build();
 
     private ThemeTags() {}
 

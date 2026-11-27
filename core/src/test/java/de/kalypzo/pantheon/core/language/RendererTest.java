@@ -1,5 +1,7 @@
 package de.kalypzo.pantheon.core.language;
 
+import net.kyori.adventure.text.format.Style;
+import de.kalypzo.pantheon.language.ThemeStyle;
 import static de.kalypzo.pantheon.language.Arg.arg;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -21,6 +23,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.minimessage.tag.resolver.Formatter;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.junit.jupiter.api.BeforeEach;
@@ -229,13 +232,40 @@ class RendererTest {
     }
 
     @Test
+    void customThemeIsUsed() {
+        text("k", "<highlight>x", "x");
+        ThemeImpl theme = ThemeImpl.of(java.util.Map.of(ThemeStyle.HIGHLIGHT,
+                Style.style(TextColor.color(0x123456))));
+        Renderer r = new Renderer("lobby", new LocaleResolver(Map.of(DE, de, EN, en)), adapters, logger,
+                () -> DE, () -> theme);
+        assertThat(r.render(MessageKey.of("k"), DE, Audience.empty(), List.of(), null).color())
+                .isEqualTo(TextColor.color(0x123456));
+    }
+
+    @Test
+    void themeSupplierIsReadPerRender() {
+        text("k", "<highlight>x", "x");
+        java.util.concurrent.atomic.AtomicReference<ThemeImpl> current =
+                new java.util.concurrent.atomic.AtomicReference<>(ThemeImpl.DEFAULT);
+        Renderer r = new Renderer("lobby", new LocaleResolver(Map.of(DE, de, EN, en)), adapters, logger,
+                () -> DE, current::get);
+        assertThat(r.render(MessageKey.of("k"), DE, Audience.empty(), List.of(), null).color())
+                .isEqualTo(TextColor.color(0xfb923c));
+        current.set(ThemeImpl.of(java.util.Map.of(ThemeStyle.HIGHLIGHT,
+                Style.style(TextColor.color(0x123456)))));
+        assertThat(r.render(MessageKey.of("k"), DE, Audience.empty(), List.of(), null).color())
+                .isEqualTo(TextColor.color(0x123456));
+    }
+
+    @Test
     void themeTagsApplyColors() {
-        text("k", "<p>a</p><highlight>b</highlight><success>c</success><deny>d</deny><error>e</error><prompt>f</prompt>",
-                "x");
+        text("k", "<p>a</p><highlight>b</highlight><success>c</success><deny>d</deny><error>e</error><prompt>f</prompt>"
+                + "<h1>g</h1><h2>h</h2>", "x");
         Component c = renderer.render(MessageKey.of("k"), DE, Audience.empty(), List.of(), null);
         assertThat(c.children()).extracting(Component::color).containsExactly(
-                NamedTextColor.GRAY, NamedTextColor.GOLD, NamedTextColor.GREEN,
-                NamedTextColor.RED, NamedTextColor.DARK_RED, NamedTextColor.YELLOW);
+                TextColor.color(0xd4d4d4), TextColor.color(0xfb923c), TextColor.color(0x7ef874),
+                TextColor.color(0xf87171), TextColor.color(0xdc2626), TextColor.color(0xfdba74),
+                TextColor.color(0xffedd5), TextColor.color(0xfdba74));
         assertThat(ThemeTags.defaultPrefix("Lobby")).isEqualTo("<highlight>Lobby</highlight><dark_gray> »</dark_gray>");
     }
 

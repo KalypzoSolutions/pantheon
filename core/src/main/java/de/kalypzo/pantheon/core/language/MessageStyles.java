@@ -7,18 +7,13 @@ import java.util.Map;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.sound.Sound;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.minimessage.tag.Tag;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
-import net.kyori.adventure.text.minimessage.tag.standard.StandardTags;
 import org.jspecify.annotations.Nullable;
 
 /** Templates and sounds of message types (language.md §7, E16). */
 public final class MessageStyles {
 
-    private static final MiniMessage MINI = MiniMessage.builder()
-            .tags(TagResolver.resolver(StandardTags.defaults(), ThemeTags.RESOLVER))
-            .build();
 
     private static final Map<MessageType, Overrides> BUILTIN = Map.of(
             MessageType.PLAIN, builtin("<content>", "<content>", "<content>", null),
@@ -154,14 +149,14 @@ public final class MessageStyles {
     }
 
     /** Fills {@code <prefix>} and {@code <content>} of a style template. */
-    public static Component apply(String template, Component prefix, Component content) {
-        return MINI.deserialize(template, TagResolver.resolver(
+    public static Component apply(ThemeImpl theme, String template, Component prefix, Component content) {
+        return theme.miniMessage().deserialize(template, TagResolver.resolver(
                 TagResolver.resolver("prefix", Tag.inserting(prefix)),
                 TagResolver.resolver("content", Tag.inserting(content))));
     }
 
     /** A prefix given as MiniMessage. */
-    public static Component prefix(String miniMessage) {
-        return MINI.deserialize(miniMessage);
+    public static Component prefix(ThemeImpl theme, String miniMessage) {
+        return theme.miniMessage().deserialize(miniMessage);
     }
 }

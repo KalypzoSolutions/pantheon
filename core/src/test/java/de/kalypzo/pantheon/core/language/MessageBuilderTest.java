@@ -1,5 +1,6 @@
 package de.kalypzo.pantheon.core.language;
 
+import de.kalypzo.pantheon.language.ThemeStyle;
 import static de.kalypzo.pantheon.language.Arg.arg;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -120,8 +121,8 @@ class MessageBuilderTest {
         assertThat(a.messages()).hasSize(1);
         Component m = a.messages().get(0);
         assertThat(plain(m)).isEqualTo("lobby » Erledigt");
-        assertThat(colorOf(m, "Erledigt")).contains(NamedTextColor.GREEN);
-        assertThat(colorOf(m, "lobby")).contains(NamedTextColor.GOLD);
+        assertThat(colorOf(m, "Erledigt")).contains(TextColor.color(0x7ef874));
+        assertThat(colorOf(m, "lobby")).contains(TextColor.color(0xfb923c));
     }
 
     @Test
@@ -130,7 +131,7 @@ class MessageBuilderTest {
         lang.message(OK).actionbar(a);
         assertThat(a.actionbars()).hasSize(1);
         assertThat(plain(a.actionbars().get(0))).isEqualTo("Erledigt");
-        assertThat(colorOf(a.actionbars().get(0), "Erledigt")).contains(NamedTextColor.GREEN);
+        assertThat(colorOf(a.actionbars().get(0), "Erledigt")).contains(TextColor.color(0x7ef874));
         assertThat(a.messages()).isEmpty();
         assertThat(a.sounds()).hasSize(1);
     }
@@ -168,10 +169,24 @@ class MessageBuilderTest {
     }
 
     @Test
+    void prefixAndTemplateUseTheme() {
+        ThemeImpl theme = ThemeImpl.of(Map.of(
+                ThemeStyle.HIGHLIGHT, Style.style(TextColor.color(0x123456)),
+                ThemeStyle.P, Style.style(TextColor.color(0x654321))));
+        Renderer renderer = new Renderer("lobby", new LocaleResolver(Map.of(DE, de, EN, en)), new ArgAdapters(),
+                Logger.getAnonymousLogger(), config::defaultLocale, () -> theme);
+        LanguageImpl themed = new LanguageImpl("lobby", config, hooks, () -> renderer, () -> {}, () -> theme);
+        RecordingAudience a = new RecordingAudience();
+        themed.message(HELLO).with("name", "x").send(a);
+        assertThat(colorOf(a.messages().get(0), "lobby")).contains(TextColor.color(0x123456));
+        assertThat(colorOf(a.messages().get(0), "Hallo ")).contains(TextColor.color(0x654321));
+    }
+
+    @Test
     void typeOverrideWins() {
         RecordingAudience a = new RecordingAudience();
         lang.message(OK).type(MessageType.DENY).send(a);
-        assertThat(colorOf(a.messages().get(0), "Erledigt")).contains(NamedTextColor.RED);
+        assertThat(colorOf(a.messages().get(0), "Erledigt")).contains(TextColor.color(0xf87171));
         assertThat(a.sounds().get(0).name()).isEqualTo(Key.key("entity.villager.no"));
     }
 
@@ -186,7 +201,7 @@ class MessageBuilderTest {
         assertThat(colorOf(a.messages().get(0), "Hallo ")).contains(NamedTextColor.GOLD);
         // actionbar template and sound come from DEFAULT
         assertThat(plain(a.actionbars().get(0))).isEqualTo("Hallo x");
-        assertThat(colorOf(a.actionbars().get(0), "Hallo ")).contains(NamedTextColor.GRAY);
+        assertThat(colorOf(a.actionbars().get(0), "Hallo ")).contains(TextColor.color(0xd4d4d4));
         assertThat(a.sounds()).isEmpty();
 
         // a type without any style behaves like DEFAULT
@@ -215,7 +230,7 @@ class MessageBuilderTest {
         RecordingAudience a = new RecordingAudience();
         m1.send(a);
         assertThat(a.sounds()).isEmpty();
-        assertThat(colorOf(a.messages().get(0), "Hallo ")).contains(NamedTextColor.GRAY);
+        assertThat(colorOf(a.messages().get(0), "Hallo ")).contains(TextColor.color(0xd4d4d4));
         // m is still without name, shows the unresolved tag
         assertThat(plain(m.component(DE))).doesNotContain("Anna");
         m3.send(a);
@@ -283,8 +298,8 @@ class MessageBuilderTest {
         Title t = a.titles().get(0);
         assertThat(plain(t.title())).isEqualTo("Titel");
         assertThat(plain(t.subtitle())).isEqualTo("Untertitel");
-        assertThat(colorOf(t.title(), "Titel")).contains(NamedTextColor.GREEN);
-        assertThat(colorOf(t.subtitle(), "Untertitel")).contains(NamedTextColor.GRAY);
+        assertThat(colorOf(t.title(), "Titel")).contains(TextColor.color(0x7ef874));
+        assertThat(colorOf(t.subtitle(), "Untertitel")).contains(TextColor.color(0xd4d4d4));
         assertThat(t.times()).isEqualTo(times);
         assertThat(a.sounds()).hasSize(1);
     }

@@ -19,6 +19,8 @@ class ArgTest {
         assertThatThrownBy(() -> Arg.parsed("prefix", "x")).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> arg("count", 1)).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> arg("highlight", 1)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> arg("h1", 1)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> arg("h2", 1)).isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
