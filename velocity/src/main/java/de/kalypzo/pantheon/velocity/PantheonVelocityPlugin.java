@@ -38,7 +38,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /** The proxy node: reports presence to Agora, answers kicks and hands deliveries to players. */
-@Plugin(id = "pantheon", name = "Pantheon", version = "0.1.0-SNAPSHOT", authors = {"Kalypzo"})
+@Plugin(id = "pantheon", name = "Pantheon", version = BuildConstants.VERSION, authors = {"Kalypzo"})
 public final class PantheonVelocityPlugin {
 
     private final ProxyServer server;

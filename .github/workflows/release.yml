@@ -1,0 +1,60 @@
+# Release: pushing a tag v<version> (e.g. v0.1.0) builds and tests Pantheon, publishes pantheon-api,
+# pantheon-core and agora-client to Maven Central and attaches the Paper and Velocity plugin jars to a
+# GitHub release. The version comes from the tag (-Pversion overrides gradle.properties); no commit is made.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+      ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+      ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.SIGNING_KEY }}
+      ORG_GRADLE_PROJECT_signingInMemoryKeyId: ${{ secrets.SIGNING_KEY_ID }}
+      ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.SIGNING_KEY_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Version from tag
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]] || [[ "$VERSION" == *SNAPSHOT ]]; then
+            echo "::error::Tag $GITHUB_REF_NAME is not a release version (expected v<major>.<minor>.<patch>)"; exit 1
+          fi
+          AGORA=$(grep -E '^agora = ' gradle/libs.versions.toml | cut -d'"' -f2)
+          if [[ "$AGORA" == *-SNAPSHOT ]]; then
+            echo "::error::libs.versions.toml uses Agora $AGORA; a release must depend on a released Agora"; exit 1
+          fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - uses: ./.github/actions/agora-local
+        with:
+          token: ${{ secrets.AGORA_REPO_TOKEN || github.token }}
+
+      - name: Build and test
+        run: ./gradlew build -Pversion="$VERSION"
+
+      - name: Publish to Maven Central
+        run: ./gradlew publishToMavenCentral -Pversion="$VERSION" --no-configuration-cache
+
+      - name: GitHub release with plugin jars
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" --title "Pantheon $VERSION" --generate-notes \
+            "paper/build/libs/pantheon-paper-$VERSION.jar" \
+            "velocity/build/libs/pantheon-velocity-$VERSION.jar"

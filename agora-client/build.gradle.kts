@@ -1,10 +1,12 @@
 plugins {
-    id("pantheon.java-conventions")
+    id("pantheon.publishing-conventions")
 }
+
+description = "gRPC client for Agora, the Pantheon network service."
 
 // No dependency on core, api or Adventure.
 dependencies {
-    api("de.kalypzo.agora:agora-proto:0.1.0-SNAPSHOT")
+    api(libs.agora.proto)
     implementation(libs.grpc.netty.shaded)
     implementation(libs.grpc.stub)
     implementation(libs.grpc.protobuf)

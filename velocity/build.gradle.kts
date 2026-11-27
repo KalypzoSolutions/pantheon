@@ -19,6 +19,16 @@ dependencies {
     testRuntimeOnly(libs.junit.platform.launcher)
 }
 
+// The @Plugin version comes from the Gradle version (a release tag sets it via -Pversion)
+val generateBuildConstants = tasks.register<Copy>("generateBuildConstants") {
+    val version = project.version.toString()
+    inputs.property("version", version)
+    from("src/main/templates")
+    into(layout.buildDirectory.dir("generated/sources/templates"))
+    expand("version" to version)
+}
+sourceSets.main { java.srcDir(generateBuildConstants) }
+
 tasks {
     shadowJar {
         archiveClassifier = ""

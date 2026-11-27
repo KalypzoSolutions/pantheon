@@ -1,0 +1,31 @@
+# Checks out KalypzoSolutions/agora at the version in gradle/libs.versions.toml (tag v<version>, or main for a
+# -SNAPSHOT) and publishes it to mavenLocal: core's integration tests need agora-server, which is not on Central.
+name: Agora to mavenLocal
+description: Build Agora at the version Pantheon uses and publish it to mavenLocal
+inputs:
+  token:
+    description: Token that can read KalypzoSolutions/agora (needed if the repository is private)
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Agora version
+      id: agora
+      shell: bash
+      run: |
+        VERSION=$(grep -E '^agora = ' gradle/libs.versions.toml | cut -d'"' -f2)
+        if [[ "$VERSION" == *-SNAPSHOT ]]; then REF=main; else REF="v$VERSION"; fi
+        echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+        echo "ref=$REF" >> "$GITHUB_OUTPUT"
+
+    - uses: actions/checkout@v4
+      with:
+        repository: KalypzoSolutions/agora
+        ref: ${{ steps.agora.outputs.ref }}
+        path: .agora
+        token: ${{ inputs.token }}
+
+    - name: Publish Agora to mavenLocal
+      shell: bash
+      working-directory: .agora
+      run: ./gradlew publishToMavenLocal -Pversion="${{ steps.agora.outputs.version }}" -PsigningInMemoryKey=

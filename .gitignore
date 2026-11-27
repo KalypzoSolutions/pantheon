@@ -13,3 +13,4 @@ dev/**/data/
 dev/**/logs/
 dev/**/*.jar
 
+.agora/

@@ -8,6 +8,32 @@ Die `Pantheon` Interface ist das zentrale Schnittstelle zu allen Servies.
 Pantheon pantheon = Pantheon.get(myPlugin)
 ```
 
+### Einbinden
+
+Die API liegt auf Maven Central. Zur Laufzeit stellt das Pantheon-Plugin sie bereit, deshalb `compileOnly`:
+
+```kotlin
+repositories {
+    mavenCentral()
+    // nur für -SNAPSHOT-Versionen:
+    maven("https://central.sonatype.com/repository/maven-snapshots/")
+}
+
+dependencies {
+    compileOnly("de.kalypzo:pantheon-api:<version>")
+    testImplementation(testFixtures("de.kalypzo:pantheon-api:<version>")) // LanguageAssertions
+}
+```
+
+Veröffentlicht werden `de.kalypzo:pantheon-api`, `de.kalypzo:pantheon-core` und `de.kalypzo:agora-client`.
+Die Plugin-Jars für Paper und Velocity hängen am jeweiligen GitHub-Release
+(<https://github.com/KalypzoSolutions/pantheon/releases>).
+
+**Release:** Tag `v<version>` pushen. Der Workflow `release.yml` baut mit `-Pversion=<version>`, gibt auf Central
+frei und legt das GitHub-Release an. Voraussetzung: `agora` in `gradle/libs.versions.toml` ist eine
+veröffentlichte Version (kein `-SNAPSHOT`). Danach `version` in `gradle.properties` auf die nächste `-SNAPSHOT`
+setzen. **Snapshot:** jeder Push auf `main`.
+
 ### CraftEngine Utilities
 
 

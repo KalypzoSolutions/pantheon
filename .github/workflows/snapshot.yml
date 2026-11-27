@@ -1,0 +1,51 @@
+# Snapshot: every push to main publishes the current -SNAPSHOT version (gradle.properties) of pantheon-api,
+# pantheon-core and agora-client to https://central.sonatype.com/repository/maven-snapshots/.
+name: Snapshot
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: snapshot
+  cancel-in-progress: true
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    env:
+      ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+      ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+      ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.SIGNING_KEY }}
+      ORG_GRADLE_PROJECT_signingInMemoryKeyId: ${{ secrets.SIGNING_KEY_ID }}
+      ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.SIGNING_KEY_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Require a -SNAPSHOT version
+        run: |
+          VERSION=$(grep '^version=' gradle.properties | cut -d= -f2)
+          if [[ "$VERSION" != *-SNAPSHOT ]]; then
+            echo "::error::gradle.properties version '$VERSION' is not a -SNAPSHOT"; exit 1
+          fi
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - uses: ./.github/actions/agora-local
+        with:
+          token: ${{ secrets.AGORA_REPO_TOKEN || github.token }}
+
+      - name: Build and test
+        run: ./gradlew build
+
+      - name: Publish snapshot
+        run: ./gradlew publishToMavenCentral --no-configuration-cache

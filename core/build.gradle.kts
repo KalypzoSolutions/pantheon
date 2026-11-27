@@ -1,7 +1,9 @@
 plugins {
-    id("pantheon.java-conventions")
+    id("pantheon.publishing-conventions")
     `java-test-fixtures`
 }
+
+description = "Pantheon core implementation (backends, language, presence, messaging)."
 
 dependencies {
     api(project(":api"))
@@ -35,7 +37,7 @@ dependencies {
     testImplementation(platform(libs.testcontainers.bom))
     testImplementation(libs.testcontainers.junit.jupiter)
     testImplementation(libs.testcontainers.postgresql)
-    testImplementation("de.kalypzo.agora:agora-server:0.1.0-SNAPSHOT") // P-11: the real Agora, in process
+    testImplementation(libs.agora.server) // P-11: the real Agora, in process
     testImplementation(libs.grpc.netty.shaded)
     testRuntimeOnly(libs.junit.platform.launcher)
 }

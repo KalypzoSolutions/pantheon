@@ -1,7 +1,9 @@
 plugins {
-    id("pantheon.java-conventions")
+    id("pantheon.publishing-conventions")
     `java-test-fixtures`
 }
+
+description = "Pantheon API for Paper plugins; test fixtures contain LanguageAssertions."
 
 dependencies {
     compileOnlyApi(libs.paper.api)
