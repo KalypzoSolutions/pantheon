@@ -45,6 +45,16 @@ configure<MavenPublishBaseExtension> {
     }
 }
 
+// Gradle derives the test-fixtures capability from the project name (de.kalypzo:api-test-fixtures),
+// not from the renamed artifact, so testFixtures("de.kalypzo:pantheon-api:…") would not resolve.
+// Add the correct capability; the derived one stays (harmless, keeps requireCapability workarounds working).
+pluginManager.withPlugin("java-test-fixtures") {
+    configurations.matching { it.name.startsWith("testFixtures") && it.name.endsWith("Elements") }
+        .configureEach {
+            outgoing.capability("de.kalypzo:$artifact-test-fixtures:${project.version}")
+        }
+}
+
 // Central needs a Javadoc jar; report real Javadoc errors, not every undocumented member.
 tasks.withType<Javadoc>().configureEach {
     (options as StandardJavadocDocletOptions).addStringOption("Xdoclint:all,-missing", "-quiet")
