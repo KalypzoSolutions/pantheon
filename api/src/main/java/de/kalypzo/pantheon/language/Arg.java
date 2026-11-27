@@ -12,8 +12,10 @@ import net.kyori.adventure.text.minimessage.tag.standard.StandardTags;
 public sealed interface Arg {
 
     /** Names that are reserved in addition to every standard MiniMessage tag. */
-    Set<String> RESERVED = Set.of("arg", "argument", "prefix", "content", "count",
-            "p", "highlight", "success", "deny", "error", "prompt");
+    Set<String> RESERVED = java.util.stream.Stream.concat(
+                    java.util.stream.Stream.of("arg", "argument", "prefix", "content", "count"),
+                    java.util.Arrays.stream(ThemeStyle.values()).map(ThemeStyle::tagName))
+            .collect(java.util.stream.Collectors.toUnmodifiableSet());
 
     /** Placeholder with a plain value; how it is rendered depends on its type. */
     record Value(String name, Object value) implements Arg {
