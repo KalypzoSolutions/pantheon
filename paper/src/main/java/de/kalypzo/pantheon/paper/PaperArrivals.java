@@ -113,14 +113,18 @@ final class PaperArrivals implements ArrivalHandler, Listener {
         pending.computeIfPresent(player, (k, p) -> p.requestId().equals(requestId) ? null : p);
     }
 
-    /** The noted spawn location of {@code player}, marked as applied; empty if none, connect only, or expired. */
+    /** The noted spawn location of {@code player}, marked as applied; empty if none, connect only, non-finite or expired. */
     Optional<Location> spawnLocation(UUID player) {
         Instant now = clock.instant();
         Location[] found = new Location[1];
         // atomic against a concurrent prepare on the main thread (the spawn event is async)
         pending.computeIfPresent(player, (k, p) -> {
             if (now.isAfter(p.expires())) return null;
-            if (p.location() == null) return p;
+            Location l = p.location();
+            // connect only, or non-finite (Paper would reject it): the join's fallback teleport decides
+            if (l == null || !Double.isFinite(l.getX()) || !Double.isFinite(l.getY()) || !Double.isFinite(l.getZ())) {
+                return p;
+            }
             found[0] = p.location().clone();
             return new Pending(p.requestId(), p.location(), p.expires(), true);
         });

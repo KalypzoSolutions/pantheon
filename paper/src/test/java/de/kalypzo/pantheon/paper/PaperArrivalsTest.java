@@ -150,6 +150,14 @@ class PaperArrivalsTest {
     }
 
     @Test
+    void nanIsNotAppliedAtSpawnAndReportsFailure() {
+        assertThat(prepare(at("world", Double.NaN))).isEqualTo(ArrivalStatus.READY);
+        assertThat(arrivals.spawnLocation(UUID_1)).isEmpty();
+        join();
+        assertThat(reports).containsExactly(Map.entry("r1", false));
+    }
+
+    @Test
     void cancelWithForeignIdKeepsEntry() {
         prepare(at("world", 64));
         arrivals.cancel("other", UUID_1);
