@@ -65,7 +65,10 @@ Trifft einer nicht zu, bleibt der Store ungecacht. Typische Fehlgriffe:
 
 - **Wächst unbegrenzt** (Logs, Tickets, Plots pro Spieler): nicht cachen. Nach jedem Reconnect wird alles neu geladen.
 - **Nur gelegentlich gebraucht** (`/clan info`): `load` reicht, das Future kostet wenige Millisekunden.
-- **Sortieren oder Filtern über viele Dokumente:** `query()` läuft in der Datenbank, das braucht keinen Cache.
+- **Sortieren oder Filtern über viele Dokumente:** `query()` läuft in der Datenbank, das braucht keinen Cache. Mit
+  `index()` bleibt eine Store-Rangliste auch bei 1 Mio. Dokumenten unter 1 ms. Ranglisten über **Spieler** nutzen den
+  Index dagegen nicht (~11 ms bei 10k, ~460 ms bei 1 Mio. Spielern). Bei vielen Spielern das Ergebnis zwischenspeichern
+  ([benchmark.md §5](benchmark.md#5-indizes-und-ranglisten)).
 
 ### Lesen oder nur schreiben?
 

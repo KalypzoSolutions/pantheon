@@ -45,6 +45,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
+import org.jspecify.annotations.Nullable;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
 /**
@@ -61,14 +63,28 @@ final class AgoraContractFixture implements ContractFixture {
     private static final List<String> NODES = List.of("lobby-01", "lobby-02", "lobby-03", PROXY);
     private static final Duration WAIT = Duration.ofSeconds(10);
 
-    /** One container per JVM, stopped by Testcontainers' reaper at the end. */
-    private static final class Db {
-        static final PostgreSQLContainer POSTGRES = start();
+    /**
+     * One container per JVM, stopped by Testcontainers' reaper at the end. The benchmarks pass an external database
+     * ({@code bench.pg.url}, {@code bench.pg.user}, {@code bench.pg.password}) so every JMH fork shares one.
+     */
+    static final class Db {
+        static final String URL;
+        static final String USER;
+        static final String PASSWORD;
 
-        private static PostgreSQLContainer start() {
-            PostgreSQLContainer c = new PostgreSQLContainer("postgres:17-alpine");
-            c.start();
-            return c;
+        static {
+            String url = System.getProperty("bench.pg.url");
+            if (url != null) {
+                URL = url;
+                USER = System.getProperty("bench.pg.user");
+                PASSWORD = System.getProperty("bench.pg.password");
+            } else {
+                PostgreSQLContainer c = new PostgreSQLContainer("postgres:17-alpine");
+                c.start();
+                URL = c.getJdbcUrl();
+                USER = c.getUsername();
+                PASSWORD = c.getPassword();
+            }
         }
     }
 
@@ -79,15 +95,18 @@ final class AgoraContractFixture implements ContractFixture {
     private final Proxy proxy;
 
     AgoraContractFixture() {
+        this(4);
+    }
+
+    /** The benchmarks use the production pool size (16) or sweep it. */
+    AgoraContractFixture(int poolSize) {
         try {
             dir = Files.createTempDirectory("agora-contract");
             Path tokens = dir.resolve("tokens");
             StringBuilder sb = new StringBuilder("# E20: node_id=token\n");
             for (String n : NODES) sb.append(n).append("=tok-").append(n).append('\n');
             Files.writeString(tokens, sb.toString());
-            PostgreSQLContainer pg = Db.POSTGRES;
-            AgoraConfig first = new AgoraConfig(0, pg.getJdbcUrl(), pg.getUsername(), pg.getPassword(), 4, tokens,
-                    Duration.ZERO);
+            AgoraConfig first = new AgoraConfig(0, Db.URL, Db.USER, Db.PASSWORD, poolSize, tokens, Duration.ZERO);
             server = AgoraServer.start(first);
             config = new AgoraConfig(server.port(), first.dbUrl(), first.dbUser(), first.dbPassword(),
                     first.dbPoolSize(), tokens, Duration.ZERO);
@@ -100,6 +119,11 @@ final class AgoraContractFixture implements ContractFixture {
 
     private String address() {
         return "localhost:" + config.port();
+    }
+
+    /** Benchmarks: the port of the running Agora (e.g. for a health check without SQL). */
+    int port() {
+        return config.port();
     }
 
     private NodeConfig nodeConfig(String id) {
@@ -153,6 +177,11 @@ final class AgoraContractFixture implements ContractFixture {
         return proxyId.equals(PROXY) ? List.copyOf(proxy.delivered) : List.of();
     }
 
+    /** Benchmarks: every delivery goes to {@code hook} instead of the list behind {@link #deliveries}. */
+    void onDelivered(Consumer<Delivered> hook) {
+        proxy.hook = hook;
+    }
+
     @Override
     public void outage() {
         server.close();
@@ -194,6 +223,7 @@ final class AgoraContractFixture implements ContractFixture {
     private static final class Proxy implements ConnectionListener, NodeStateSupplier {
         final AgoraConnection connection;
         final List<Delivered> delivered = new CopyOnWriteArrayList<>();
+        volatile @Nullable Consumer<Delivered> hook;
         private final Map<UUID, de.kalypzo.agora.proto.v1.PresenceEntry> players = new LinkedHashMap<>(); // by this
         private final String id;
 
@@ -270,8 +300,13 @@ final class AgoraContractFixture implements ContractFixture {
         @Override
         public void onMessage(ServiceMessage m) {
             switch (m.getPayloadCase()) {
-                case DELIVER -> delivered.add(new Delivered(UUID.fromString(m.getDeliver().getPlayer()),
-                        ProtoMapper.fromProto(m.getDeliver().getDelivery())));
+                case DELIVER -> {
+                    Delivered d = new Delivered(UUID.fromString(m.getDeliver().getPlayer()),
+                            ProtoMapper.fromProto(m.getDeliver().getDelivery()));
+                    Consumer<Delivered> h = hook;
+                    if (h != null) h.accept(d);
+                    else delivered.add(d);
+                }
                 case KICK_PLAYER -> {
                     boolean wasOnline;
                     synchronized (this) {

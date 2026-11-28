@@ -102,6 +102,10 @@ styles:
 - Aus Code: `pantheon.theme().style(ThemeStyle.H1)` bzw. `.color(...)`, etwa für selbst gebaute Components. Ändern
   kann ein Plugin das Theme nicht.
 
+### Leistung
+Was Pantheon im Server-Thread kostet, wie lange Agora bis zur Bestätigung braucht und wo die Grenzen liegen (Indizes,
+Nebenläufigkeit, Audit), misst `./gradlew :core:benchmark`. Ergebnisse und Grafiken: [benchmark.md](benchmark.md).
+
 ### Audit-Log
 Plugins schreiben Einträge pro Spieler mit `player.audit().action(...)`, `pantheon.audit()` liefert Spieler-Handles für
 Offline-Spieler, versteckte Commands und das Lesen der Zeitachse. Pantheon puffert die Einträge pro Node, schickt sie
