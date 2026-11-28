@@ -318,7 +318,7 @@ wird beim Laden Halter. Überschneiden sich beide kurz, gilt dasselbe wie beim S
 `PanPlayer#teleport` und `#connect` laufen über den einfachen Aufruf `Teleport(player, server, location?)`. `location`
 fehlt bei `connect`. Aufrufen kann ihn nur ein `PAPER`-Node, andere bekommen `PERMISSION_DENIED`. Agora führt den
 Ablauf selbst (ein Zustandsautomat pro Spieler) und antwortet erst am Ende. `NetworkLocation.server` muss dem `server`
-des Requests entsprechen, sonst `INVALID_ARGUMENT`. Wo Spieler und Ziel auf demselben Server liegen, ist es ein lokaler
+des Requests entsprechen, sonst `INVALID_ARGUMENT`. Liegen Spieler und Ziel auf dem aufrufenden Server, ist es ein lokaler
 Teleport ohne Agora.
 
 ```
@@ -363,7 +363,7 @@ Teleport ohne Agora.
 | `ConnectPlayer` gesendet (bzw. `ALREADY_HERE`) → `PlayerArrived` | 25 s | `AGORA_TELEPORT_ARRIVAL_MS` | `TIMEOUT` |
 | Gesamt ab Eingang des Aufrufs | 38 s | `AGORA_TELEPORT_TOTAL_MS` | `TIMEOUT` |
 | vorgemerkter Ort auf dem Ziel | 35 s ab `PrepareArrival` | fest in Pantheon | Eintrag verfällt, normaler Spawn |
-| offenes `ConnectPlayer` (Wartezeit eines Folge-Teleports) | 10 s ab Senden | fest in Agora | weiter, als wäre es da |
+| offenes `ConnectPlayer` (Wartezeit eines Folge-Teleports) | Default 10 s ab Senden, gleich `AGORA_TELEPORT_CONNECT_MS` | `AGORA_TELEPORT_CONNECT_MS` | weiter, als wäre es da |
 
 Der Client in Pantheon hat für `Teleport` eine eigene Deadline von 40 s, damit normalerweise Agora das Ergebnis
 bestimmt. `ConnectResult` kommt erst nach dem JoinGame auf dem Ziel, und davor wartet der Login bis zu
@@ -373,10 +373,10 @@ bestimmt. `ConnectResult` kommt erst nach dem JoinGame auf dem Ziel, und davor w
 **Ein Teleport pro Spieler.** Agora hält pro Spieler höchstens einen laufenden Teleport, der neueste gewinnt. Der
 alte endet mit `SUPERSEDED` (und bekommt sein `CancelArrival`). Ist von ihm oder einem früheren Teleport noch ein
 `ConnectPlayer` offen, wartet der neue Teleport mit seinem **ganzen** Start (schon dem `PrepareArrival`) auf dessen
-`ConnectResult`, höchstens 10 s ab dem Senden. Velocity lehnt einen zweiten Connect sonst mit
+`ConnectResult`, höchstens `AGORA_TELEPORT_CONNECT_MS` (Default 10 s) ab dem Senden. Eine Erhöhung dieser Variable verlängert also auch die Wartezeit eines Folge-Teleports. Velocity lehnt einen zweiten Connect sonst mit
 `CONNECTION_IN_PROGRESS` ab, und der alte Connect könnte den Spieler nach einem `OK` des neuen wieder wegziehen. Das
 gilt auch, wenn der alte Teleport schon mit `OK` endete, bevor sein `ConnectResult` da war. Ein dritter Teleport löst
-den wartenden sofort ab. **Grenze:** Ein lokaler Teleport (Spieler und Ziel auf demselben Server) läuft an Agora vorbei
+den wartenden sofort ab. **Grenze:** Ein lokaler Teleport (Spieler und Ziel auf dem aufrufenden Server) läuft an Agora vorbei
 und löst einen laufenden Netzwerk-Teleport nicht ab ([player.md](player.md#7-lebenszyklus)).
 
 **Wenn etwas wegfällt.** Endet die Session des Ziels, ist das `SERVER_UNAVAILABLE` (ohne Cancel), die des Proxys
@@ -875,7 +875,7 @@ Proxys brauchen die Outbox nur, wenn Plugins auf ihnen Daten schreiben.
   (höchstens 10 s), weil Velocity sonst einen zweiten Connect ablehnt oder der alte Connect den Spieler wegzieht.
 - **`CancelArrival` nach jedem Abbruch nach `PrepareArrival`**, solange die Session des Ziels offen ist. So landet ein
   später ankommender Spieler nie an einem alten Ort.
-- **Grenzen des Teleports:** Ein lokaler Teleport läuft an Agora vorbei und löst keinen Netzwerk-Teleport ab. Ein
+- **Grenzen des Teleports:** Ein lokaler Teleport (Spieler und Ziel auf dem aufrufenden Server) läuft an Agora vorbei und löst keinen Netzwerk-Teleport ab. Ein
   Teleport geht nicht in die Outbox und wird nicht wiederholt. Die Zeiten stehen in `AGORA_TELEPORT_PREPARE_MS`,
   `AGORA_TELEPORT_CONNECT_MS`, `AGORA_TELEPORT_ARRIVAL_MS` und `AGORA_TELEPORT_TOTAL_MS`.
 - **Presence-Kulanz:** Heartbeats entfernen keine Einträge unter 10 Sekunden, PAPER-Nodes bekommen `Welcome` nach einem

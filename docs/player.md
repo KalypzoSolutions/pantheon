@@ -470,5 +470,5 @@ liegt in dessen Verantwortung: Ein `thenAccept` ohne `exceptionally` verschluckt
   `CommonMessage`-Schlüssel, leer bei `OK` und `SUPERSEDED`. Pantheon schickt dem Spieler selbst nichts. Ein
   Teleport ist auf einem Paper-Node für jeden Online-Spieler im Netzwerk aufrufbar. Pro Spieler läuft höchstens ein
   Teleport über Agora, der neueste löst den alten mit `SUPERSEDED` ab. **Grenze:** Ein lokaler Teleport (Spieler und
-  Ziel auf diesem Server) läuft an Agora vorbei. Er löst einen laufenden Netzwerk-Teleport nicht ab und kann `OK`
+  Ziel auf dem aufrufenden Server) läuft an Agora vorbei. Er löst einen laufenden Netzwerk-Teleport nicht ab und kann `OK`
   melden, bevor dieser den Spieler noch wegzieht.

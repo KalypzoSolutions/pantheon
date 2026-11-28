@@ -103,10 +103,10 @@ Server console: `docker compose exec lobby-01 rcon-cli` (e.g. `op <name>`, `stop
   (`docker compose logs lobby-01 | grep Language`.)
 - [ ] Network teleport: vorher Agora vom Feature-Branch bauen (`./gradlew :agora-server:jibDockerBuild` im
   Agora-Worktree).
-  - [ ] `/pt tp lobby-02 world 0 80 0` von `lobby-01`: Der Spieler kommt direkt am Ort an, ohne sichtbaren Sprung.
+  - [ ] `/pt tp lobby-02 world 0 -60 0` von `lobby-01`: Der Spieler kommt direkt am Ort an, ohne sichtbaren Sprung.
   - [ ] Ziel in einer anderen Welt als dem Spawn von `lobby-02`: Der Spieler kommt am Ort an.
   - [ ] `/pt tp` zweimal schnell hintereinander auf zwei verschiedene Server: Der Spieler landet am Ziel des zweiten.
-  - [ ] `/pt tp lobby-02 nether 0 80 0`: Meldung „Diese Welt gibt es …“.
+  - [ ] `/pt tp lobby-02 nether 0 -60 0`: Meldung „Diese Welt gibt es …“.
   - [ ] `/pt connect lobby-01` auf `lobby-01`: „Teleport: OK“ ohne Wechsel.
 
 ### Audit checklist (P-39)
