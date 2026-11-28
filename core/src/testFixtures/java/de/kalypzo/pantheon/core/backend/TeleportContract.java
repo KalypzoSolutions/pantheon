@@ -259,6 +259,76 @@ public abstract class TeleportContract {
     }
 
     @Test
+    void thirdTeleportWhileWaiting() throws Exception {
+        UUID p = online("lobby-01");
+        CompletableFuture<ConnectStatus> held = new CompletableFuture<>();
+        AtomicBoolean first = new AtomicBoolean(true);
+        connector = (pl, s) -> first.getAndSet(false) ? held : arrive(pl, s);
+        NetworkLocation third = at("lobby-02", 3);
+
+        CompletableFuture<TeleportResult> t1 = a.teleport(p, "lobby-02", at("lobby-02", 1));
+        RecordingArrivals.Prepared p1 = arrivals.nextPrepared();
+        await().atMost(WAIT).pollInterval(Duration.ofMillis(10)).until(() -> connects.get() == 1);
+        CompletableFuture<TeleportResult> t2 = a.teleport(p, "lobby-02", at("lobby-02", 2));
+        assertThat(result(t1)).isEqualTo(TeleportResult.SUPERSEDED);
+        CompletableFuture<TeleportResult> t3 = a.teleport(p, "lobby-02", third);
+        assertThat(result(t2)).isEqualTo(TeleportResult.SUPERSEDED);
+
+        // T2 and T3 wait for T1's open ConnectPlayer (it expires after TELEPORT_CONNECT, so look only briefly)
+        assertThat(arrivals.prepared.poll(300, TimeUnit.MILLISECONDS)).isNull();
+        held.complete(ConnectStatus.CONNECTED);
+        assertThat(arrivals.cancelled.poll(10, TimeUnit.SECONDS)).isEqualTo(p1.requestId());
+        assertThat(arrivals.nextPrepared().location()).isEqualTo(third);
+        assertThat(result(t3)).isEqualTo(TeleportResult.OK);
+        assertThat(arrivals.prepared).isEmpty(); // T2 never prepared, so it has no cancel either
+        assertThat(arrivals.cancelled).isEmpty();
+    }
+
+    /** T1 A→B is still connecting when T2 wants the player back on A: it ends there, not on B. */
+    @Test
+    void teleportBackDuringConnectEndsOnStart() throws Exception {
+        a.answerArrivals(arrivals);
+        UUID p = online("lobby-01");
+        CompletableFuture<ConnectStatus> held = new CompletableFuture<>();
+        AtomicBoolean first = new AtomicBoolean(true);
+        connector = (pl, s) -> {
+            if (!first.getAndSet(false)) return arrive(pl, s);
+            fx.switchServer(pl, s); // the proxy moved the player, its ConnectResult is still out
+            return held;
+        };
+        NetworkLocation back = at("lobby-01", 2);
+
+        CompletableFuture<TeleportResult> t1 = a.teleport(p, "lobby-02", at("lobby-02", 1));
+        arrivals.nextPrepared();
+        await().atMost(WAIT).pollInterval(Duration.ofMillis(10)).until(() -> connects.get() == 1);
+        CompletableFuture<TeleportResult> t2 = a.teleport(p, "lobby-01", back);
+        assertThat(result(t1)).isEqualTo(TeleportResult.SUPERSEDED);
+        assertThat(arrivals.prepared.poll(300, TimeUnit.MILLISECONDS)).isNull();
+        await().atMost(WAIT).until(() -> onServer(p, "lobby-02"));
+        held.complete(ConnectStatus.CONNECTED);
+
+        assertThat(arrivals.nextPrepared().location()).isEqualTo(back);
+        assertThat(result(t2)).isEqualTo(TeleportResult.OK);
+        await().atMost(WAIT).until(() -> onServer(p, "lobby-01"));
+    }
+
+    @Test
+    void lateArrivalAfterTimeoutIsIgnored() throws Exception {
+        UUID p = online("lobby-01");
+        connector = (pl, s) -> completedFuture(ConnectStatus.CONNECTED);
+
+        assertThat(result(a.teleport(p, "lobby-02", at("lobby-02", 1)))).isEqualTo(TeleportResult.TIMEOUT);
+        String late = arrivals.nextPrepared().requestId();
+        assertThat(arrivals.cancelled.poll(10, TimeUnit.SECONDS)).isEqualTo(late);
+        b.reportArrival(late, true);
+
+        connector = this::arrive;
+        NetworkLocation next = at("lobby-02", 2);
+        assertThat(result(a.teleport(p, "lobby-02", next))).isEqualTo(TeleportResult.OK);
+        assertThat(arrivals.nextPrepared().location()).isEqualTo(next);
+    }
+
+    @Test
     void presenceRemovalEndsTeleport() throws Exception {
         UUID p = online("lobby-01");
         connector = (pl, s) -> {
@@ -304,6 +374,11 @@ public abstract class TeleportContract {
         fx.switchServer(player, server);
         fx.node(server).reportArrival(lastId(), true);
         return completedFuture(ConnectStatus.CONNECTED);
+    }
+
+    /** {@code a} sees {@code player} on {@code server}. */
+    private boolean onServer(UUID player, String server) {
+        return a.snapshot().stream().anyMatch(e -> e.player().equals(player) && server.equals(e.server()));
     }
 
     private String lastId() {
