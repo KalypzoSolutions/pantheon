@@ -15,7 +15,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -170,6 +169,7 @@ public abstract class TeleportContract {
         };
 
         assertThat(result(a.teleport(p, "lobby-02", at("lobby-02", 1)))).isEqualTo(TeleportResult.CONNECT_FAILED);
+        assertThat(arrivals.cancelled.poll(10, TimeUnit.SECONDS)).isEqualTo(arrivals.nextPrepared().requestId());
     }
 
     @Test
@@ -178,6 +178,7 @@ public abstract class TeleportContract {
         connector = (pl, s) -> completedFuture(ConnectStatus.PLAYER_NOT_FOUND);
 
         assertThat(result(a.teleport(p, "lobby-02", at("lobby-02", 1)))).isEqualTo(TeleportResult.NOT_ONLINE);
+        assertThat(arrivals.cancelled.poll(10, TimeUnit.SECONDS)).isEqualTo(arrivals.nextPrepared().requestId());
     }
 
     @Test
@@ -197,20 +198,21 @@ public abstract class TeleportContract {
     @Test
     void alreadyConnectedWaitsForArrival() throws Exception {
         UUID p = online("lobby-02");
-        AtomicReference<CompletableFuture<TeleportResult>> running = new AtomicReference<>();
+        // the connector may run before teleport() returns, so the delayed report waits for the future
+        CompletableFuture<CompletableFuture<TeleportResult>> running = new CompletableFuture<>();
         AtomicBoolean doneBeforeReport = new AtomicBoolean(true);
         connector = (pl, s) -> {
             String id = lastId();
             CompletableFuture.delayedExecutor(200, TimeUnit.MILLISECONDS).execute(() -> {
-                doneBeforeReport.set(running.get().isDone());
+                doneBeforeReport.set(running.join().isDone());
                 fx.node(s).reportArrival(id, true);
             });
             return completedFuture(ConnectStatus.ALREADY_CONNECTED);
         };
 
-        running.set(a.teleport(p, "lobby-02", at("lobby-02", 1)));
+        running.complete(a.teleport(p, "lobby-02", at("lobby-02", 1)));
 
-        assertThat(result(running.get())).isEqualTo(TeleportResult.OK);
+        assertThat(result(running.join())).isEqualTo(TeleportResult.OK);
         assertThat(doneBeforeReport).isFalse();
     }
 
@@ -265,6 +267,7 @@ public abstract class TeleportContract {
         };
 
         assertThat(result(a.teleport(p, "lobby-02", at("lobby-02", 1)))).isEqualTo(TeleportResult.NOT_ONLINE);
+        assertThat(arrivals.cancelled.poll(10, TimeUnit.SECONDS)).isEqualTo(arrivals.nextPrepared().requestId());
     }
 
     @Test
