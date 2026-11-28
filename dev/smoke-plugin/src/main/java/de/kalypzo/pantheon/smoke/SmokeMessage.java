@@ -18,6 +18,7 @@ public enum SmokeMessage implements MessageKey {
     BUY_DONE("smoke.buy.done", MessageType.SUCCESS),
     BUY_TOO_POOR("smoke.buy.too-poor", MessageType.DENY),
     UNKNOWN_KIT("smoke.buy.unknown-kit", MessageType.DENY),
+    TELEPORTED("smoke.teleported", MessageType.SUCCESS),
     FAILED("smoke.failed", MessageType.ERROR),
     /** Intentionally missing in {@code pantheonsmoke_en_US.yml}: the P-19 check reports it at startup (checklist). */
     UNTRANSLATED("smoke.untranslated");

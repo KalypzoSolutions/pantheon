@@ -24,6 +24,12 @@ public sealed interface PtCommand {
     /** {@code /pt shop}: one trace with smoke:open, smoke:buy and smoke:close. */
     record Shop() implements PtCommand {}
 
+    /** {@code /pt tp <server> <world> <x> <y> <z>}: network teleport of the sender. */
+    record Tp(String server, String world, double x, double y, double z) implements PtCommand {}
+
+    /** {@code /pt connect <server>}: move the sender to another server. */
+    record Connect(String server) implements PtCommand {}
+
     record UnknownKit(String name) implements PtCommand {}
 
     record Usage() implements PtCommand {}
@@ -69,6 +75,12 @@ public sealed interface PtCommand {
                 if (args.length != 2) yield new Usage();
                 yield Kit.byName(args[1]).<PtCommand>map(Buy::new).orElse(new UnknownKit(args[1]));
             }
+            case "tp" -> {
+                if (args.length != 6) yield new Usage();
+                Double x = decimal(args[3]), y = decimal(args[4]), z = decimal(args[5]);
+                yield x == null || y == null || z == null ? new Usage() : new Tp(args[1], args[2], x, y, z);
+            }
+            case "connect" -> args.length == 2 ? new Connect(args[1]) : new Usage();
             default -> new Usage();
         };
     }
@@ -76,6 +88,16 @@ public sealed interface PtCommand {
     private static Long number(String s) {
         try {
             return Long.parseLong(s);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    /** Finite numbers only: NaN and infinity would be rejected by the teleport anyway. */
+    private static Double decimal(String s) {
+        try {
+            double d = Double.parseDouble(s);
+            return Double.isFinite(d) ? d : null;
         } catch (NumberFormatException e) {
             return null;
         }

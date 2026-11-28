@@ -82,4 +82,18 @@ class PtCommandTest {
         assertThat(parse("shop")).isEqualTo(new PtCommand.Shop());
         assertThat(parse("shop now")).isInstanceOf(PtCommand.Usage.class);
     }
+
+    @Test
+    void tpNeedsServerWorldAndThreeNumbers() {
+        assertThat(parse("tp lobby-02 world 1.5 64 -3")).isEqualTo(new PtCommand.Tp("lobby-02", "world", 1.5, 64, -3));
+        assertThat(parse("tp lobby-02 world x 64 0")).isInstanceOf(PtCommand.Usage.class);
+        assertThat(parse("tp lobby-02 world 1 2")).isInstanceOf(PtCommand.Usage.class);
+        assertThat(parse("tp lobby-02 world NaN 64 0")).isInstanceOf(PtCommand.Usage.class);
+    }
+
+    @Test
+    void connectNeedsServer() {
+        assertThat(parse("connect lobby-01")).isEqualTo(new PtCommand.Connect("lobby-01"));
+        assertThat(parse("connect")).isInstanceOf(PtCommand.Usage.class);
+    }
 }

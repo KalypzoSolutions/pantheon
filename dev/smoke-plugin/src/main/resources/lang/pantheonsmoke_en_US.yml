@@ -1,6 +1,6 @@
 # smoke.untranslated is missing on purpose (P-28 checklist): the P-19 language check reports it at startup.
 smoke:
-  usage: "/pt coins [add N] | pay NAME N | msg NAME [TEXT] | where NAME | buy starter/vip | audit NAME [HOURS] | shop"
+  usage: "/pt coins [add N] | pay NAME N | msg NAME [TEXT] | where NAME | buy starter/vip | audit NAME [HOURS] | shop | tp SERVER WORLD X Y Z | connect SERVER"
   coins: "You have <highlight><coins></highlight> coins. Kits: <kits>"
   coins-added: "Added <amount> coins (inc), balance <highlight><coins></highlight>."
   pay:
@@ -15,4 +15,5 @@ smoke:
     done: "Bought kit <highlight><kit></highlight> for <price> coins. Balance <highlight><coins></highlight>."
     too-poor: "Kit <kit> costs <price> coins, you only have <coins>."
     unknown-kit: "Unknown kit <kit>. Available: <kits>"
+  teleported: "Teleport: OK"
   failed: "Failed: <reason>"

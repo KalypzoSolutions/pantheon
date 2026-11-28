@@ -7,4 +7,4 @@ description: Dev-only smoke test for Pantheon (P-28). Never deploy to production
 commands:
   pt:
     description: Pantheon smoke test
-    usage: /pt coins [add <n>] | pay <name> <n> | msg <name> [text] | where <name> | buy <kit> | audit <name> [hours] | shop
+    usage: /pt coins [add <n>] | pay <name> <n> | msg <name> [text] | where <name> | buy <kit> | audit <name> [hours] | shop | tp <server> <world> <x> <y> <z> | connect <server>

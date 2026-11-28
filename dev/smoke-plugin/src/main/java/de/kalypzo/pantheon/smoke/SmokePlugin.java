@@ -10,6 +10,8 @@ import de.kalypzo.pantheon.audit.TimelinePage;
 import de.kalypzo.pantheon.data.Field;
 import de.kalypzo.pantheon.data.DataNamespace;
 import de.kalypzo.pantheon.language.CommonMessage;
+import de.kalypzo.pantheon.world.NetworkLocation;
+import de.kalypzo.pantheon.world.TeleportResult;
 import de.kalypzo.pantheon.player.LocalPanPlayer;
 import de.kalypzo.pantheon.player.PanPlayer;
 import java.time.Duration;
@@ -67,7 +69,7 @@ public final class SmokePlugin extends JavaPlugin implements TabExecutor {
         if (command == null) throw new IllegalStateException("command 'pt' missing in plugin.yml");
         command.setExecutor(this);
         command.setTabCompleter(this);
-        getLogger().info("Smoke plugin ready: /pt coins | pay | msg | where | buy | audit | shop");
+        getLogger().info("Smoke plugin ready: /pt coins | pay | msg | where | buy | audit | shop | tp | connect");
     }
 
     @Override
@@ -104,6 +106,9 @@ public final class SmokePlugin extends JavaPlugin implements TabExecutor {
                         arg("world", loc.worldName()), arg("x", fmt(loc.x())), arg("y", fmt(loc.y())),
                         arg("z", fmt(loc.z())));
             }));
+            case PtCommand.Tp t -> teleported(me, me.teleport(
+                    new NetworkLocation(t.server(), t.world(), t.x(), t.y(), t.z(), 0f, 0f)));
+            case PtCommand.Connect c -> teleported(me, me.connect(c.server()));
             case PtCommand.Buy b -> buy(me, b.kit());
             case PtCommand.Audit a -> { } // handled above
             case PtCommand.Shop s -> shop(me);
@@ -112,6 +117,14 @@ public final class SmokePlugin extends JavaPlugin implements TabExecutor {
             case PtCommand.Usage u -> me.sendMessage(SmokeMessage.USAGE);
         }
         return true;
+    }
+
+    private void teleported(LocalPanPlayer me, CompletableFuture<TeleportResult> result) {
+        result.whenComplete((r, e) -> {
+            if (e != null) failed(me, e);
+            else if (r == TeleportResult.OK) me.sendMessage(SmokeMessage.TELEPORTED);
+            else r.message().ifPresent(m -> me.sendMessage(m)); // SUPERSEDED: nothing
+        });
     }
 
     private void pay(LocalPanPlayer me, PtCommand.Pay p) {
@@ -219,7 +232,7 @@ public final class SmokePlugin extends JavaPlugin implements TabExecutor {
     public List<String> onTabComplete(CommandSender sender, Command command, String label, String[] args) {
         List<String> options = new ArrayList<>();
         if (args.length == 1) {
-            options.addAll(List.of("coins", "pay", "msg", "where", "buy", "audit", "shop"));
+            options.addAll(List.of("coins", "pay", "msg", "where", "buy", "audit", "shop", "tp", "connect"));
         } else if (args.length == 2) {
             switch (args[0].toLowerCase(Locale.ROOT)) {
                 case "coins" -> options.add("add");

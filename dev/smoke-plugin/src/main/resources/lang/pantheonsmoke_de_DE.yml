@@ -1,5 +1,5 @@
 smoke:
-  usage: "/pt coins [add N] | pay NAME N | msg NAME [TEXT] | where NAME | buy starter/vip | audit NAME [STUNDEN] | shop"
+  usage: "/pt coins [add N] | pay NAME N | msg NAME [TEXT] | where NAME | buy starter/vip | audit NAME [STUNDEN] | shop | tp SERVER WELT X Y Z | connect SERVER"
   coins: "Du hast <highlight><coins></highlight> Münzen. Kits: <kits>"
   coins-added: "<amount> Münzen gutgeschrieben (inc), Kontostand <highlight><coins></highlight>."
   pay:
@@ -14,5 +14,6 @@ smoke:
     done: "Kit <highlight><kit></highlight> für <price> Münzen gekauft. Kontostand <highlight><coins></highlight>."
     too-poor: "Kit <kit> kostet <price> Münzen, du hast nur <coins>."
     unknown-kit: "Unbekanntes Kit <kit>. Verfügbar: <kits>"
+  teleported: "Teleport: OK"
   failed: "Fehlgeschlagen: <reason>"
   untranslated: "Dieser Text fehlt absichtlich in der englischen Datei."
