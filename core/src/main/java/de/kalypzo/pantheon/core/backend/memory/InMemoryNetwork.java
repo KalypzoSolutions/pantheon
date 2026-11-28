@@ -15,6 +15,7 @@ import de.kalypzo.pantheon.core.backend.LocationResolver;
 import de.kalypzo.pantheon.core.backend.NodeState;
 import de.kalypzo.pantheon.core.backend.PresenceChange;
 import de.kalypzo.pantheon.core.backend.PresenceEntry;
+import de.kalypzo.pantheon.core.backend.ProxyConnector;
 import de.kalypzo.pantheon.core.data.UuidV7;
 import de.kalypzo.pantheon.core.data.semantics.OpSemantics;
 import de.kalypzo.pantheon.core.data.wire.ApplyResult;
@@ -147,6 +148,7 @@ public final class InMemoryNetwork implements AutoCloseable {
     };
 
     private final Clock clock;
+    private final MemoryTeleports teleports;
     private final AtomicLong sequence = new AtomicLong();
     private final Object lock = new Object();
     /** Own generator: an injected clock must not move the JVM-wide one (cross-note A-18). */
@@ -174,7 +176,12 @@ public final class InMemoryNetwork implements AutoCloseable {
     }
 
     public InMemoryNetwork(Clock clock) {
+        this(clock, TeleportTimeouts.DEFAULT);
+    }
+
+    public InMemoryNetwork(Clock clock, TeleportTimeouts teleport) {
         this.clock = Objects.requireNonNull(clock, "clock");
+        this.teleports = new MemoryTeleports(this, Objects.requireNonNull(teleport, "teleport"));
     }
 
     /** One node {@code local} of a new network. */
@@ -256,13 +263,15 @@ public final class InMemoryNetwork implements AutoCloseable {
      * messages are lost, it is no holder any more and misses every event, while the other nodes go on.
      */
     public void outage(String nodeId) {
+        Node n;
         synchronized (lock) {
-            Node n = nodes.get(Objects.requireNonNull(nodeId, "nodeId"));
+            n = nodes.get(Objects.requireNonNull(nodeId, "nodeId"));
             if (n == null || n.partitioned) return;
             n.partitioned = true;
             unregister(n.id);
             n.setState(ConnectionState.DISCONNECTED);
         }
+        teleports.nodeGone(n); // outside the lock: the automaton takes it under its slot locks
     }
 
     /** The node of {@link #outage(String)} reconnects: it re-registers its {@link NodeState} and gets the presence. */
@@ -308,12 +317,37 @@ public final class InMemoryNetwork implements AutoCloseable {
     }
 
     public void leave(UUID player) {
+        PresenceEntry removed;
         synchronized (lock) {
-            PresenceEntry removed = presence.remove(player);
+            removed = presence.remove(player);
             if (removed != null) {
                 firePresence(new PresenceChange.Removed(player));
                 auditQuit(removed);
             }
+        }
+        if (removed != null) teleports.removed(player); // outside the lock, like outage(nodeId)
+    }
+
+    /**
+     * The proxy step of a teleport: connects the player to the target server. {@code null} (the default) means there
+     * is no proxy, so a teleport ends with {@code SERVER_UNAVAILABLE}.
+     */
+    public void proxyConnects(@Nullable ProxyConnector connector) {
+        teleports.proxy(connector);
+    }
+
+    /** Whether the player is on a server, for the teleport automaton. */
+    boolean onServer(UUID player) {
+        synchronized (lock) {
+            PresenceEntry e = presence.get(player);
+            return e != null && e.server() != null && !e.server().isEmpty();
+        }
+    }
+
+    /** The node with this id, without creating it. */
+    @Nullable Node existingNode(String nodeId) {
+        synchronized (lock) {
+            return nodes.get(nodeId);
         }
     }
 
@@ -1167,6 +1201,7 @@ public final class InMemoryNetwork implements AutoCloseable {
                 setState(ConnectionState.DISCONNECTED);
             }
             events.shutdown();
+            teleports.nodeGone(this); // AR-10, outside the lock
         }
 
         // ----- DataBackend -----
@@ -1316,7 +1351,6 @@ public final class InMemoryNetwork implements AutoCloseable {
             this.resolver = Objects.requireNonNull(resolver, "resolver");
         }
 
-        /** shortcut: no proxy hook yet, so every teleport over the network is SERVER_UNAVAILABLE; T-7 replaces it. */
         @Override
         public CompletableFuture<TeleportResult> teleport(UUID player, String server,
                                                           @Nullable NetworkLocation location) {
@@ -1325,7 +1359,7 @@ public final class InMemoryNetwork implements AutoCloseable {
             synchronized (lock) {
                 if (offline()) return CompletableFuture.completedFuture(TeleportResult.NETWORK_UNAVAILABLE);
             }
-            return CompletableFuture.completedFuture(TeleportResult.SERVER_UNAVAILABLE);
+            return teleports.teleport(player, server, location); // outside the lock (AR-13)
         }
 
         @Override
@@ -1335,7 +1369,18 @@ public final class InMemoryNetwork implements AutoCloseable {
 
         @Override
         public void reportArrival(String requestId, boolean arrived) {
-            Objects.requireNonNull(requestId, "requestId"); // nothing waits for it before T-7
+            Objects.requireNonNull(requestId, "requestId");
+            synchronized (lock) {
+                if (offline()) return; // lost, like a stream message
+            }
+            teleports.reportArrival(this, requestId, arrived);
+        }
+
+        /** The arrival handler while this node is connected, else {@code null} (no target session). */
+        @Nullable ArrivalHandler openHandler() {
+            synchronized (lock) {
+                return offline() ? null : arrivals;
+            }
         }
 
         // ----- MessageBackend -----
