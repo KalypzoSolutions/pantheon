@@ -9,6 +9,7 @@ import de.kalypzo.pantheon.core.runtime.PantheonRegistry;
 import de.kalypzo.pantheon.language.CommonMessage;
 import de.kalypzo.pantheon.language.Language;
 import de.kalypzo.pantheon.spi.PantheonProvider;
+import java.time.Clock;
 import java.util.Map;
 import java.util.function.Supplier;
 import org.bukkit.event.EventHandler;
@@ -99,7 +100,7 @@ public class PantheonPlugin extends JavaPlugin implements Listener {
         }
     }
 
-    /** P-24: login, join and quit of players, and location answers for players on this server (R10). */
+    /** P-24: login, join and quit of players, location answers for players on this server (R10), and arrivals. */
     private void registerLifecycle(PantheonRuntime rt, BootstrapResult.Started started, MainThreadExecutor mainThread) {
         PantheonImpl ownPantheon = registry.get(this, true, p -> new PantheonImpl(p, rt));
         Language own = ownPantheon.language(); // Pantheon's own texts
@@ -113,6 +114,10 @@ public class PantheonPlugin extends JavaPlugin implements Listener {
         rt.panPlayers(lifecycle.localFactory());
         started.backend().answerLocations(lifecycle::resolveLocation);
         getServer().getPluginManager().registerEvents(lifecycle, this);
+        PaperArrivals arrivals = new PaperArrivals(getServer(), uuid -> rt.localPlayers().get(uuid).isPresent(),
+                started.backend()::reportArrival, mainThread, Clock.systemUTC(), getLogger());
+        started.backend().answerArrivals(arrivals); // network teleports to this server
+        getServer().getPluginManager().registerEvents(arrivals, this);
         getServer().getPluginManager().registerEvents(new AuditListener(rt.audit(), rt.hiddenCommands(),
                 new PaperCommandResolver(getServer()), getLogger()), this); // P-37
     }

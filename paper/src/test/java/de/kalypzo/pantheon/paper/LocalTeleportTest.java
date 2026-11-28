@@ -8,9 +8,6 @@ import de.kalypzo.pantheon.world.NetworkLocation;
 import de.kalypzo.pantheon.world.TeleportResult;
 import java.lang.reflect.Proxy;
 import java.util.concurrent.CompletableFuture;
-import io.papermc.paper.entity.TeleportFlag;
-import org.bukkit.Location;
-import org.bukkit.event.player.PlayerTeleportEvent;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -31,15 +28,7 @@ class LocalTeleportTest {
     void setUp() {
         server = MockBukkit.mock();
         server.addSimpleWorld("world");
-        // MockBukkit does not implement teleportAsync; emulate Paper, which rejects non-finite coordinates
-        player = new PlayerMock(server, "Notch") {
-            @Override
-            public CompletableFuture<Boolean> teleportAsync(Location l, PlayerTeleportEvent.TeleportCause cause,
-                                                            TeleportFlag... flags) {
-                if (!Double.isFinite(l.getX())) throw new IllegalArgumentException("x not finite");
-                return CompletableFuture.completedFuture(teleport(l));
-            }
-        };
+        player = new PaperPlayerMock(server, "Notch");
         server.addPlayer(player);
         // the network view is a fake: every network call answers TIMEOUT
         network = (PanPlayer) Proxy.newProxyInstance(getClass().getClassLoader(),
