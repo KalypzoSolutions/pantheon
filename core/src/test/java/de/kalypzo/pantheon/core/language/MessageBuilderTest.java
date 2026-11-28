@@ -433,6 +433,16 @@ class MessageBuilderTest {
         }
 
         @Override
+        public CompletableFuture<de.kalypzo.pantheon.world.TeleportResult> teleport(NetworkLocation location) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public CompletableFuture<de.kalypzo.pantheon.world.TeleportResult> connect(String server) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public void sendMessage(MessageKey key, Arg... args) {
             if (lang != null) {
                 lang.send(this, key, args);

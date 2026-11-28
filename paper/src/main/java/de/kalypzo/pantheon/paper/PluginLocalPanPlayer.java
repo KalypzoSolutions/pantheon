@@ -7,6 +7,7 @@ import de.kalypzo.pantheon.language.MessageKey;
 import de.kalypzo.pantheon.player.LocalPanPlayer;
 import de.kalypzo.pantheon.player.SessionData;
 import de.kalypzo.pantheon.world.NetworkLocation;
+import de.kalypzo.pantheon.world.TeleportResult;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
@@ -105,6 +106,16 @@ final class PluginLocalPanPlayer implements LocalPanPlayer {
     @Override
     public CompletableFuture<NetworkLocation> location() {
         return network.location();
+    }
+
+    @Override
+    public CompletableFuture<TeleportResult> teleport(NetworkLocation location) {
+        return network.teleport(location);
+    }
+
+    @Override
+    public CompletableFuture<TeleportResult> connect(String server) {
+        return network.connect(server);
     }
 
     @Override

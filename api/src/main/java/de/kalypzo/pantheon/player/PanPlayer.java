@@ -4,6 +4,7 @@ import de.kalypzo.pantheon.audit.AuditLog;
 import de.kalypzo.pantheon.language.Arg;
 import de.kalypzo.pantheon.language.MessageKey;
 import de.kalypzo.pantheon.world.NetworkLocation;
+import de.kalypzo.pantheon.world.TeleportResult;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
@@ -35,6 +36,20 @@ public interface PanPlayer extends ForwardingAudience.Single {
     Optional<LocalPanPlayer> local();
 
     CompletableFuture<NetworkLocation> location();
+
+    /**
+     * Brings the player to {@code location}, also to another server. The future always completes normally with a
+     * result, never with an exception (except for programming errors such as {@code null}). Callbacks do not run on
+     * the main thread; as with {@link #location()} use {@code thenAcceptAsync(..., pantheon.mainThread())}.
+     */
+    CompletableFuture<TeleportResult> teleport(NetworkLocation location);
+
+    /**
+     * Connects the player to {@code server} without a target location (the normal spawn). {@code OK} means the join
+     * on the target is done and its data is loaded. If the player is already there: {@code OK} at once, nothing
+     * happens. Completes like {@link #teleport(NetworkLocation)}.
+     */
+    CompletableFuture<TeleportResult> connect(String server);
 
     void sendMessage(MessageKey key, Arg... args);
 

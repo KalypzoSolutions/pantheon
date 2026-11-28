@@ -8,6 +8,9 @@ import de.kalypzo.pantheon.player.LocalPanPlayer;
 import de.kalypzo.pantheon.player.PanPlayer;
 import de.kalypzo.pantheon.player.SessionData;
 import de.kalypzo.pantheon.world.NetworkLocation;
+import de.kalypzo.pantheon.world.TeleportResult;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
@@ -19,7 +22,9 @@ import java.util.concurrent.Executor;
 import java.util.function.Function;
 import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.title.Title;
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.jspecify.annotations.Nullable;
 
@@ -33,6 +38,8 @@ import org.jspecify.annotations.Nullable;
  * {@code PanPlayer}. Thread-safe.
  */
 public final class LocalPanPlayerImpl implements LocalPanPlayer {
+
+    private static final Logger LOG = Logger.getLogger(LocalPanPlayerImpl.class.getName());
 
     private final UUID uuid;
     private final Player bukkit;
@@ -178,6 +185,35 @@ public final class LocalPanPlayerImpl implements LocalPanPlayer {
             return new NetworkLocation(nodeId, l.getWorld().getName(), l.getX(), l.getY(), l.getZ(), l.getYaw(),
                     l.getPitch());
         }, mainThread);
+    }
+
+    @Override
+    public CompletableFuture<TeleportResult> teleport(NetworkLocation location) {
+        Objects.requireNonNull(location, "location");
+        if (ended || !location.serverName().equals(nodeId)) return network.teleport(location);
+        // the Bukkit calls run on the main thread; Bukkit rejects NaN and infinite coordinates with an exception
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                World world = Bukkit.getWorld(location.worldName());
+                if (world == null) return CompletableFuture.completedFuture(TeleportResult.WORLD_NOT_FOUND);
+                return bukkit.teleportAsync(new Location(world, location.x(), location.y(), location.z(),
+                        location.yaw(), location.pitch()))
+                        .thenApply(ok -> ok ? TeleportResult.OK : TeleportResult.CONNECT_FAILED);
+            } catch (RuntimeException e) {
+                LOG.log(Level.WARNING, "Teleport von " + uuid + " fehlgeschlagen", e);
+                return CompletableFuture.completedFuture(TeleportResult.CONNECT_FAILED);
+            }
+        }, mainThread).thenCompose(f -> f).exceptionally(e -> {
+            LOG.log(Level.WARNING, "Teleport von " + uuid + " fehlgeschlagen", e);
+            return TeleportResult.CONNECT_FAILED;
+        });
+    }
+
+    @Override
+    public CompletableFuture<TeleportResult> connect(String server) {
+        Objects.requireNonNull(server, "server");
+        if (!ended && server.equals(nodeId)) return CompletableFuture.completedFuture(TeleportResult.OK);
+        return network.connect(server);
     }
 
     @Override

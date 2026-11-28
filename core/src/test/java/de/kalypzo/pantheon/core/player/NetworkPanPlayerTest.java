@@ -241,6 +241,45 @@ class NetworkPanPlayerTest {
         assertThat(asked).containsExactly(id);
     }
 
+    private NetworkPanPlayer playerOn(String nodeId) {
+        return new NetworkPanPlayer(id, presence, u -> Optional.ofNullable(local.get()), node, node,
+                language("lobby", "x", "y"), LanguageProvider.defaultLocale(), Runnable::run, null, nodeId,
+                u -> NoAudit.INSTANCE);
+    }
+
+    @Test
+    void teleportLocalToOwnServerUsesHandle() {
+        FakeLocal handle = new FakeLocal();
+        handle.teleportResult = de.kalypzo.pantheon.world.TeleportResult.WORLD_NOT_FOUND;
+        local.set(handle);
+        var target = new de.kalypzo.pantheon.world.NetworkLocation("lobby-01", "world", 1, 2, 3, 0, 0);
+        assertThat(playerOn("lobby-01").teleport(target).join())
+                .isEqualTo(de.kalypzo.pantheon.world.TeleportResult.WORLD_NOT_FOUND);
+        assertThat(handle.teleports).containsExactly(target);
+    }
+
+    @Test
+    void teleportOfflineIsNotOnline() {
+        var target = new de.kalypzo.pantheon.world.NetworkLocation("lobby-02", "world", 1, 2, 3, 0, 0);
+        assertThat(playerOn("lobby-01").teleport(target).join())
+                .isEqualTo(de.kalypzo.pantheon.world.TeleportResult.NOT_ONLINE);
+    }
+
+    @Test
+    void teleportRemoteGoesToBackend() {
+        joinRemote(EN);
+        var target = new de.kalypzo.pantheon.world.NetworkLocation("lobby-2", "world", 1, 2, 3, 0, 0);
+        assertThat(playerOn("lobby-01").teleport(target).join())
+                .isEqualTo(de.kalypzo.pantheon.world.TeleportResult.SERVER_UNAVAILABLE);
+    }
+
+    @Test
+    void connectOwnServerIsOk() {
+        local.set(new FakeLocal());
+        assertThat(playerOn("lobby-01").connect("lobby-01").join())
+                .isEqualTo(de.kalypzo.pantheon.world.TeleportResult.OK);
+    }
+
     /** A local player: it is its own audience and records messages. */
     private static final class FakeLocal implements LocalPanPlayer {
         final List<Component> messages = new ArrayList<>();
@@ -317,6 +356,22 @@ class NetworkPanPlayerTest {
         @Override
         public Optional<LocalPanPlayer> local() {
             return Optional.of(this);
+        }
+
+        final List<Object> teleports = new ArrayList<>();
+        de.kalypzo.pantheon.world.TeleportResult teleportResult = de.kalypzo.pantheon.world.TeleportResult.OK;
+
+        @Override
+        public CompletableFuture<de.kalypzo.pantheon.world.TeleportResult> teleport(
+                de.kalypzo.pantheon.world.NetworkLocation location) {
+            teleports.add(location);
+            return CompletableFuture.completedFuture(teleportResult);
+        }
+
+        @Override
+        public CompletableFuture<de.kalypzo.pantheon.world.TeleportResult> connect(String server) {
+            teleports.add(server);
+            return CompletableFuture.completedFuture(teleportResult);
         }
 
         @Override

@@ -13,6 +13,7 @@ import de.kalypzo.pantheon.player.ExpectedOnlinePlayerException;
 import de.kalypzo.pantheon.player.LocalPanPlayer;
 import de.kalypzo.pantheon.player.PanPlayer;
 import de.kalypzo.pantheon.world.NetworkLocation;
+import de.kalypzo.pantheon.world.TeleportResult;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
@@ -151,6 +152,42 @@ public final class NetworkPanPlayer implements PanPlayer {
                     new ExpectedOnlinePlayerException(uuid, ExpectedOnlinePlayerException.Scope.NETWORK));
         }
         return presenceBackend.location(uuid); // R42: timeout and found=false are mapped by the backend
+    }
+
+    @Override
+    public CompletableFuture<TeleportResult> teleport(NetworkLocation location) {
+        Objects.requireNonNull(location, "location");
+        Optional<LocalPanPlayer> here = local.apply(uuid);
+        if (here.isPresent() && location.serverName().equals(nodeId)) {
+            return viaHandle(here.get(), h -> h.teleport(location));
+        }
+        return viaBackend(here.isPresent(), location.serverName(), location);
+    }
+
+    @Override
+    public CompletableFuture<TeleportResult> connect(String server) {
+        Objects.requireNonNull(server, "server");
+        Optional<LocalPanPlayer> here = local.apply(uuid);
+        if (here.isPresent() && server.equals(nodeId)) return CompletableFuture.completedFuture(TeleportResult.OK);
+        return viaBackend(here.isPresent(), server, null);
+    }
+
+    private CompletableFuture<TeleportResult> viaHandle(LocalPanPlayer handle,
+            Function<LocalPanPlayer, CompletableFuture<TeleportResult>> call) {
+        try {
+            return call.apply(handle);
+        } catch (RuntimeException e) {
+            LOG.log(Level.WARNING, "Teleport von " + uuid + " fehlgeschlagen", e);
+            return CompletableFuture.completedFuture(TeleportResult.CONNECT_FAILED);
+        }
+    }
+
+    private CompletableFuture<TeleportResult> viaBackend(boolean isLocal, String server,
+                                                         @Nullable NetworkLocation location) {
+        if (!isLocal && presence.get(uuid).isEmpty()) {
+            return CompletableFuture.completedFuture(TeleportResult.NOT_ONLINE);
+        }
+        return presenceBackend.teleport(uuid, server, location);
     }
 
     @Override
