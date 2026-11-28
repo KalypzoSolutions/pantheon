@@ -39,8 +39,8 @@ public interface PanPlayer extends ForwardingAudience.Single {
 
     /**
      * Brings the player to {@code location}, also to another server. The future always completes normally with a
-     * result, never with an exception (except for programming errors such as {@code null}). Callbacks do not run on
-     * the main thread; as with {@link #location()} use {@code thenAcceptAsync(..., pantheon.mainThread())}.
+     * result, never with an exception (except for programming errors such as {@code null}). Callbacks may run on any
+     * thread; for Bukkit calls use {@code thenAcceptAsync(..., pantheon.mainThread())}.
      */
     CompletableFuture<TeleportResult> teleport(NetworkLocation location);
 
