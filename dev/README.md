@@ -79,6 +79,8 @@ Server console: `docker compose exec lobby-01 rcon-cli` (e.g. `op <name>`, `stop
 | `/pt where <name>`          | `PanPlayer.location()`: server, world and coordinates             |
 | `/pt audit <name> [hours]`  | `audit().timeline(uuid).viewer(sender).between(..)`: the timeline as text lines like audit_log.md §10 (default 24 h, newest 40 entries, console allowed; from the console the lines are not echoed over rcon, look at the `audit_view` row instead) |
 | `/pt shop`                  | `audit().begin(smoke:open)`, `action(smoke:buy)`, `trace.end(smoke:close)`: one trace with three entries |
+| `/pt tp <server> <world> <x> <y> <z>` | `PanPlayer.teleport(NetworkLocation)` on yourself: "Teleport: OK" or the failure text |
+| `/pt connect <server>`      | `PanPlayer.connect(server)` on yourself: "Teleport: OK" or the failure text |
 | `/pt buy starter` / `vip`   | `atomic().withdraw(COINS, 50 / 200).add(KITS, kit).commit()`, then the items (16 bread / 4 diamonds) |
 
 ## Checklist (a human with two Minecraft clients)
@@ -99,6 +101,13 @@ Server console: `docker compose exec lobby-01 rcon-cli` (e.g. `op <name>`, `stop
   `docker compose start agora`; die Outbox liegt in `plugins/Pantheon/outbox.db` im Volume `lobby-01-data`.)
 - [ ] Fehlende Übersetzung im Smoke-Plugin: Beim Start erscheint die Meldung aus P-19.
   (`docker compose logs lobby-01 | grep Language`.)
+- [ ] Network teleport: vorher Agora vom Feature-Branch bauen (`./gradlew :agora-server:jibDockerBuild` im
+  Agora-Worktree).
+  - [ ] `/pt tp lobby-02 world 0 80 0` von `lobby-01`: Der Spieler kommt direkt am Ort an, ohne sichtbaren Sprung.
+  - [ ] Ziel in einer anderen Welt als dem Spawn von `lobby-02`: Der Spieler kommt am Ort an.
+  - [ ] `/pt tp` zweimal schnell hintereinander auf zwei verschiedene Server: Der Spieler landet am Ziel des zweiten.
+  - [ ] `/pt tp lobby-02 nether 0 80 0`: Meldung „Diese Welt gibt es …“.
+  - [ ] `/pt connect lobby-01` auf `lobby-01`: „Teleport: OK“ ohne Wechsel.
 
 ### Audit checklist (P-39)
 

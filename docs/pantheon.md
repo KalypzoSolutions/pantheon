@@ -52,7 +52,7 @@ Umgebungsvariablen:
 | `PANTHEON_NODE_ID`       | Eindeutiger Node-Name, gleich dem Namen in der Server-Liste der Proxys      |
 | `PANTHEON_AGORA_TOKEN`   | Token dieses Nodes, wird bei jedem Aufruf mitgeschickt und von Agora geprüft |
 | `PANTHEON_BACKEND`       | `agora` (Default) oder `memory`. Bei `memory` laufen Daten, Presence und Nachrichten in einem Prozess (Tests, lokale Entwicklung), die drei Agora-Variablen entfallen. `PANTHEON_NODE_ID` hat dann den Default `local` |
-| `PANTHEON_LOGIN_TIMEOUT_MS` | Timeout für Laden und Login in Millisekunden, Default `5000` ([player.md §7](player.md#7-lebenszyklus)) |
+| `PANTHEON_LOGIN_TIMEOUT_MS` | Timeout für Laden und Login in Millisekunden, Default `5000` ([player.md §7](player.md#7-lebenszyklus)). Wer ihn über etwa 8 s setzt, erhöht `AGORA_TELEPORT_CONNECT_MS` in Agora mit, sonst endet ein Teleport mit `TIMEOUT`, obwohl der Wechsel noch klappen würde ([agora.md §4](agora.md#teleport)) |
 
 - Fehlt ein Wert oder lehnt Agora den Token ab (`UNAUTHENTICATED`), ist das ein Konfigurationsfehler: Pantheon
   startet nicht und meldet das im Log. Ist Agora nur nicht erreichbar, startet der Node normal und verbindet sich

@@ -86,6 +86,8 @@ public interface PresenceBackend {
     Subscription onPresenceChanged(Consumer<PresenceChange> listener);
     CompletableFuture<NetworkLocation> location(UUID player);         // fragt den Server des Spielers (Locate)
     void answerLocations(LocationResolver resolver);                  // beantwortet LocationRequests für diesen Node
+    CompletableFuture<TeleportResult> teleport(UUID player, String server, @Nullable NetworkLocation location); // Teleport (§4)
+    void answerArrivals(ArrivalHandler handler);                      // beantwortet PrepareArrival/CancelArrival für diesen Node
 }
 
 public interface MessageBackend {
@@ -121,6 +123,7 @@ service Agora {
   rpc Connect       (stream NodeMessage)    returns (stream ServiceMessage);
   rpc ClaimPresence (ClaimPresenceRequest)  returns (ClaimPresenceResponse);   // nur vom Proxy, beim Login (§4)
   rpc Locate        (LocateRequest)         returns (LocateResponse);          // Position eines Spielers (§4)
+  rpc Teleport      (TeleportRequest)       returns (TeleportResponse);        // Netzwerk-Teleport, nur von Paper (§4)
   rpc AppendAudit   (AuditBundle)           returns (AppendAuditResponse);     // Audit-Einträge, gebündelt und gzip-komprimiert
   rpc Timeline      (TimelineRequest)       returns (TimelineResponse);        // Zeitachse eines Spielers, viewer ist Pflicht
   // dazu die einfachen Aufrufe aus §5
@@ -141,6 +144,10 @@ message NodeMessage {
     SendDelivery  send_delivery  = 9;   // fertig gerenderte Nachricht an einen Spieler (§6)
     ReleasePlayer release_player = 10;  // Halter abmelden
     Barrier       barrier        = 11;  // Stream-Barriere
+    ArrivalPrepared arrival_prepared = 12; // nur von Paper, Antwort auf PrepareArrival
+    PlayerArrived player_arrived   = 13; // nur von Paper
+    ArrivalFailed arrival_failed     = 14; // nur von Paper
+    ConnectResult connect_result     = 15; // nur vom Proxy, Antwort auf ConnectPlayer
   }
 }
 
@@ -153,6 +160,9 @@ message ServiceMessage {
     LocationRequest location_request = 5;
     KickPlayer      kick_player      = 6;   // nur an Proxys
     BarrierAck      barrier_ack      = 7;   // Antwort auf Barrier
+    PrepareArrival  prepare_arrival  = 8;   // nur an Paper
+    CancelArrival   cancel_arrival   = 9;   // nur an Paper
+    ConnectPlayer   connect_player   = 10;  // nur an Proxys
   }
 }
 
@@ -169,6 +179,24 @@ message Heartbeat {
   repeated PresenceEntry players        = 2;   // nur vom Proxy
   repeated string        watched_stores = 3;   // auch Store-Halter reparieren sich nach höchstens 10 s
 }
+
+message TeleportRequest  { string player = 1; string server = 2; NetworkLocation location = 3; } // location fehlt = connect
+enum TeleportStatus {
+  TELEPORT_STATUS_UNSPECIFIED = 0; OK = 1; NOT_ONLINE = 2; SERVER_UNAVAILABLE = 3; WORLD_NOT_FOUND = 4;
+  CONNECT_FAILED = 5; SUPERSEDED = 6; TIMEOUT = 7;
+}
+message TeleportResponse { TeleportStatus status = 1; }
+
+message PrepareArrival  { string request_id = 1; string player = 2; NetworkLocation location = 3; }
+message CancelArrival   { string request_id = 1; string player = 2; }
+// Enum-Werte gelten in proto3 im ganzen Package: WORLD_NOT_FOUND steht schon in TeleportStatus, daher der Präfix.
+enum ArrivalStatus { ARRIVAL_STATUS_UNSPECIFIED = 0; READY = 1; ARRIVAL_WORLD_NOT_FOUND = 2; ALREADY_HERE = 3; }
+message ArrivalPrepared { string request_id = 1; ArrivalStatus status = 2; }
+message PlayerArrived   { string request_id = 1; }
+message ArrivalFailed   { string request_id = 1; }
+message ConnectPlayer   { string request_id = 1; string player = 2; string server = 3; }
+enum ConnectStatus { CONNECT_STATUS_UNSPECIFIED = 0; CONNECTED = 1; ALREADY_CONNECTED = 2; FAILED = 3; PLAYER_NOT_FOUND = 4; }
+message ConnectResult   { string request_id = 1; ConnectStatus status = 2; }
 
 message Barrier    { string request_id = 1; }
 message BarrierAck { string request_id = 1; }   // Agora hat alle früheren Nachrichten dieses Streams verarbeitet
@@ -285,6 +313,91 @@ Presence nach, schickt dessen Node ein `LocationRequest` und wartet höchstens 3
 Die Spielerdaten brauchen dafür nichts Besonderes. Der alte Paper-Server meldet beim Quit `releasePlayer`, der neue
 wird beim Laden Halter. Überschneiden sich beide kurz, gilt dasselbe wie beim Serverwechsel (§5).
 
+### Teleport
+
+`PanPlayer#teleport` und `#connect` laufen über den einfachen Aufruf `Teleport(player, server, location?)`. `location`
+fehlt bei `connect`. Aufrufen kann ihn nur ein `PAPER`-Node, andere bekommen `PERMISSION_DENIED`. Agora führt den
+Ablauf selbst (ein Zustandsautomat pro Spieler) und antwortet erst am Ende. `NetworkLocation.server` muss dem `server`
+des Requests entsprechen, sonst `INVALID_ARGUMENT`. Wo Spieler und Ziel auf demselben Server liegen, ist es ein lokaler
+Teleport ohne Agora.
+
+```
+ Aufrufer                    Agora                     Ziel (Paper)                Proxy des Spielers
+ │ Teleport(p, loc) ───────►│                           │                             │
+ │                          ├── PrepareArrival ────────►│ Welt da? Ort merken (TTL)   │
+ │                          │◄── ArrivalPrepared ───────┤                             │
+ │                          ├── ConnectPlayer ──────────┼────────────────────────────►│ connect()
+ │                          │                           │ Spawn: Ort setzen, Join     │
+ │                          │◄── PlayerArrived ─────────┤                             │
+ │                          │◄── ConnectResult ─────────┼─────────────────────────────┤
+ │◄── TeleportResponse(OK) ─┤                           │                             │
+```
+
+1. **Prüfen.** Presence-Eintrag mit Server fehlt → `NOT_ONLINE`. Zielserver ohne offene `PAPER`-Session oder Proxy ohne
+   offene Session → `SERVER_UNAVAILABLE`.
+2. **`PrepareArrival`** an das Ziel, auch wenn die Presence den Spieler schon dort sieht (sie kann veraltet sein).
+   Antwort `ArrivalPrepared`: `READY` (Eintrag mit TTL angelegt), `ARRIVAL_WORLD_NOT_FOUND` → `WORLD_NOT_FOUND`,
+   `ALREADY_HERE` (der Spieler ist beim Eintreffen schon lokal, das Ziel teleportiert selbst und meldet danach
+   `PlayerArrived` oder `ArrivalFailed`, Agora schickt kein Connect), `ARRIVAL_STATUS_UNSPECIFIED` (der Node nimmt keine
+   Ankünfte an) → `SERVER_UNAVAILABLE`.
+3. **`ConnectPlayer`** an den Proxy, der `createConnectionRequest(server).connect()` ruft. `ConnectResult`:
+   `CONNECTED` und `ALREADY_CONNECTED` → weiter auf `PlayerArrived` warten, `FAILED` → `CONNECT_FAILED`,
+   `PLAYER_NOT_FOUND` → `NOT_ONLINE`.
+4. **Ankunft.** Das Ziel setzt den Ort schon im `AsyncPlayerSpawnLocationEvent`, also ohne sichtbaren Sprung. Kam das
+   `PrepareArrival` erst nach diesem Event, teleportiert es nach dem Join (Rückfall: lieber kurz springen als am
+   falschen Ort stehen). Danach sendet es `PlayerArrived` (`ArrivalFailed` → `CONNECT_FAILED`). `PlayerArrived` kann vor
+   dem `ConnectResult` ankommen, Agora akzeptiert beide Reihenfolgen. Es nimmt `PlayerArrived` und `ArrivalFailed` auch
+   schon an, solange es noch auf `ArrivalPrepared` wartet: Bei `ALREADY_HERE` laufen Antwort und Report auf Paper in
+   getrennten Aufgaben. Ein `ConnectResult(FAILED)` nach `PlayerArrived` ändert das Ergebnis nicht.
+5. **Aufräumen.** Endet ein Teleport nach dem gesendeten `PrepareArrival` mit etwas anderem als `OK` (auch bei
+   `TIMEOUT` ohne `ArrivalPrepared`), schickt Agora dem Ziel `CancelArrival(request_id)`, solange dessen Session noch
+   offen ist. Das Ziel löscht den Eintrag nur bei passender `request_id`. Bleibt eine Lücke: Kommt der Spieler zwischen
+   Timeout und Cancel doch noch an, steht er am Ort, der Aufrufer hat aber `TIMEOUT` bekommen.
+
+**Zeiten.** Alle Grenzen sind in Agora einstellbar (Umgebungsvariablen, siehe Agora-README).
+
+| Schritt | Grenze | Variable | Bei Ablauf |
+|---|---|---|---|
+| `PrepareArrival` → `ArrivalPrepared` | 3 s | `AGORA_TELEPORT_PREPARE_MS` | `TIMEOUT` |
+| `ConnectPlayer` → `ConnectResult` | 10 s | `AGORA_TELEPORT_CONNECT_MS` | `TIMEOUT` |
+| `ConnectPlayer` gesendet (bzw. `ALREADY_HERE`) → `PlayerArrived` | 25 s | `AGORA_TELEPORT_ARRIVAL_MS` | `TIMEOUT` |
+| Gesamt ab Eingang des Aufrufs | 38 s | `AGORA_TELEPORT_TOTAL_MS` | `TIMEOUT` |
+| vorgemerkter Ort auf dem Ziel | 35 s ab `PrepareArrival` | fest in Pantheon | Eintrag verfällt, normaler Spawn |
+| offenes `ConnectPlayer` (Wartezeit eines Folge-Teleports) | 10 s ab Senden | fest in Agora | weiter, als wäre es da |
+
+Der Client in Pantheon hat für `Teleport` eine eigene Deadline von 40 s, damit normalerweise Agora das Ergebnis
+bestimmt. `ConnectResult` kommt erst nach dem JoinGame auf dem Ziel, und davor wartet der Login bis zu
+`PANTHEON_LOGIN_TIMEOUT_MS + 1 s` auf die Daten. Wer den Login-Timeout über etwa 8 s setzt, erhöht
+`AGORA_TELEPORT_CONNECT_MS` mit ([pantheon.md](pantheon.md#agora-verbindung)).
+
+**Ein Teleport pro Spieler.** Agora hält pro Spieler höchstens einen laufenden Teleport, der neueste gewinnt. Der
+alte endet mit `SUPERSEDED` (und bekommt sein `CancelArrival`). Ist von ihm oder einem früheren Teleport noch ein
+`ConnectPlayer` offen, wartet der neue Teleport mit seinem **ganzen** Start (schon dem `PrepareArrival`) auf dessen
+`ConnectResult`, höchstens 10 s ab dem Senden. Velocity lehnt einen zweiten Connect sonst mit
+`CONNECTION_IN_PROGRESS` ab, und der alte Connect könnte den Spieler nach einem `OK` des neuen wieder wegziehen. Das
+gilt auch, wenn der alte Teleport schon mit `OK` endete, bevor sein `ConnectResult` da war. Ein dritter Teleport löst
+den wartenden sofort ab. **Grenze:** Ein lokaler Teleport (Spieler und Ziel auf demselben Server) läuft an Agora vorbei
+und löst einen laufenden Netzwerk-Teleport nicht ab ([player.md](player.md#7-lebenszyklus)).
+
+**Wenn etwas wegfällt.** Endet die Session des Ziels, ist das `SERVER_UNAVAILABLE` (ohne Cancel), die des Proxys
+`NOT_ONLINE`. Verlässt der Spieler das Netzwerk, ist es `NOT_ONLINE`. Fällt der Aufrufer weg, läuft der Ablauf zu Ende,
+nur die Antwort geht ins Leere. Ist Agora nicht erreichbar, ist es `NETWORK_UNAVAILABLE`, ohne Wiederholung und ohne
+Outbox. Startet Agora neu, gehen laufende Teleports verloren.
+
+**Fehlerzuordnung im Client.** `AgoraBackend` bildet jeden Ausgang auf ein `TeleportResult` ab, es gibt nie eine
+Exception (außer `NullPointerException` bei `null`).
+
+| Ausgang | `TeleportResult` |
+|---|---|
+| keine Verbindung, `UNAVAILABLE` | `NETWORK_UNAVAILABLE` |
+| `UNIMPLEMENTED` (Agora ist älter) | `NETWORK_UNAVAILABLE`, einmal WARN |
+| `DEADLINE_EXCEEDED` | `TIMEOUT` |
+| jeder andere gRPC-Status | `NETWORK_UNAVAILABLE`, WARN mit Status |
+| `TeleportStatus` `UNSPECIFIED` oder unbekannt | `CONNECT_FAILED`, WARN |
+
+Die Velocity-Plugins werden zusammen mit Agora aktualisiert: Ein alter Proxy kennt `ConnectPlayer` nicht, ignoriert es,
+und der Teleport endet mit `TIMEOUT`.
+
 ---
 
 ## 5. Daten
@@ -303,7 +416,7 @@ rpc Delete      (DeleteRequest)      returns (DeleteResponse);
 rpc Expire      (ExpireRequest)      returns (ExpireResponse);
 rpc Transfer    (TransferRequest)    returns (TransferResponse);
 rpc DeclareIndex(DeclareIndexRequest) returns (DeclareIndexResponse);
-// dazu Locate (§4) und AppendAudit/Timeline ([audit_log.md](audit_log.md))
+// dazu Locate und Teleport (§4) und AppendAudit/Timeline ([audit_log.md](audit_log.md))
 
 // Feldwerte als eigener Typ. google.protobuf.Struct führt alle Zahlen als double, long wäre nicht mehr exakt.
 message Value {
@@ -756,6 +869,15 @@ Proxys brauchen die Outbox nur, wenn Plugins auf ihnen Daten schreiben.
 - **Mehrere Proxys mit eindeutigen Namen** (`proxy-01`, `proxy-02`, …). Der Proxy, über den sich ein Spieler verbindet,
   meldet ihn.
 - **`CONNECTED` nach `BarrierAck`**, nicht nach `Welcome`. `Welcome` ersetzt nur die Presence-Kopie.
+- **Teleport als fester Ablauf in Agora** (Ansatz A), kein allgemeiner Request/Response-Kanal für Plugins. Agora sieht
+  Presence, Zielserver und Proxy als einziges, und der Ablauf überlebt den Wegfall des Aufrufers ([§4](#teleport)).
+- **Ein Teleport pro Spieler, der neueste gewinnt.** Der neue wartet auf ein noch offenes `ConnectPlayer` des Spielers
+  (höchstens 10 s), weil Velocity sonst einen zweiten Connect ablehnt oder der alte Connect den Spieler wegzieht.
+- **`CancelArrival` nach jedem Abbruch nach `PrepareArrival`**, solange die Session des Ziels offen ist. So landet ein
+  später ankommender Spieler nie an einem alten Ort.
+- **Grenzen des Teleports:** Ein lokaler Teleport läuft an Agora vorbei und löst keinen Netzwerk-Teleport ab. Ein
+  Teleport geht nicht in die Outbox und wird nicht wiederholt. Die Zeiten stehen in `AGORA_TELEPORT_PREPARE_MS`,
+  `AGORA_TELEPORT_CONNECT_MS`, `AGORA_TELEPORT_ARRIVAL_MS` und `AGORA_TELEPORT_TOTAL_MS`.
 - **Presence-Kulanz:** Heartbeats entfernen keine Einträge unter 10 Sekunden, PAPER-Nodes bekommen `Welcome` nach einem
   Agora-Start frühestens nach 15 Sekunden.
 - **Alle schreibenden Aufrufe sind idempotent.**

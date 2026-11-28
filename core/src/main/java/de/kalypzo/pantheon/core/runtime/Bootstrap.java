@@ -51,6 +51,10 @@ import java.util.logging.Logger;
  */
 public final class Bootstrap {
 
+    /**
+     * Raising this above about 8 s needs a matching {@code AGORA_TELEPORT_CONNECT_MS} in Agora: a network teleport
+     * waits for the login on the target, otherwise it ends with {@code TIMEOUT} although the switch would still work.
+     */
     public static final String LOGIN_TIMEOUT_MS = "PANTHEON_LOGIN_TIMEOUT_MS";
     public static final Duration DEFAULT_LOGIN_TIMEOUT = Duration.ofMillis(5000);
     /** E12: {@code onEnable} waits at most this long for the first connection outcome. */

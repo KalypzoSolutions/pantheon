@@ -71,6 +71,8 @@ public interface PanPlayer extends ForwardingAudience.Single {
     Optional<LocalPanPlayer> local();             // Zugriff auf die synchrone Seite, falls hier
 
     CompletableFuture<NetworkLocation> location();
+    CompletableFuture<TeleportResult> teleport(NetworkLocation location);   // auch auf einen anderen Server, endet nie mit einer Exception
+    CompletableFuture<TeleportResult> connect(String server);               // ohne Zielort, normaler Spawn
 
     AuditLog audit();                             // Audit-Log für diesen Spieler, auch auf anderen Servern, siehe audit_log.md §4
 
@@ -375,7 +377,8 @@ stehen 75 da. Verloren geht nichts. B zeigt höchstens für ein paar Millisekund
 Wer ein Future bekommt und danach Bukkit-Objekte anfasst, kehrt so auf den Main-Thread zurück:
 
 ```java
-friend.location().thenAcceptAsync(loc -> teleportTo(player, loc), pantheon.mainThread());
+friend.location().thenCompose(player::teleport)
+        .thenAcceptAsync(r -> r.message().ifPresent(player::sendMessage), pantheon.mainThread());
 ```
 
 `pantheon.mainThread()` ist ein `Executor`. Für Nachrichten an einen `PanPlayer` braucht es keinen Wechsel, weil er
@@ -460,3 +463,12 @@ liegt in dessen Verantwortung: Ein `thenAccept` ohne `exceptionally` verschluckt
 - **`location()`** fragt Agora (`Locate`, höchstens 3 s). Ist der Spieler offline, ist er „nicht online“, antwortet
   sein Server nicht, scheitert das Future mit `ExpectedOnlinePlayerException(NETWORK)`
   ([agora.md §4](agora.md#position-eines-spielers)).
+- **`teleport(location)` und `connect(server)`** bringen den Spieler an einen Ort oder auf einen Server, auch über
+  Servergrenzen ([agora.md §4](agora.md#teleport)). Das Future endet immer normal mit einem `TeleportResult`
+  (`OK`, `NOT_ONLINE`, `SERVER_UNAVAILABLE`, `WORLD_NOT_FOUND`, `CONNECT_FAILED`, `SUPERSEDED`, `TIMEOUT`,
+  `NETWORK_UNAVAILABLE`), außer bei `null`-Argumenten. `TeleportResult#message()` liefert für Fehler einen fertigen
+  `CommonMessage`-Schlüssel, leer bei `OK` und `SUPERSEDED`. Pantheon schickt dem Spieler selbst nichts. Ein
+  Teleport ist auf einem Paper-Node für jeden Online-Spieler im Netzwerk aufrufbar. Pro Spieler läuft höchstens ein
+  Teleport über Agora, der neueste löst den alten mit `SUPERSEDED` ab. **Grenze:** Ein lokaler Teleport (Spieler und
+  Ziel auf diesem Server) läuft an Agora vorbei. Er löst einen laufenden Netzwerk-Teleport nicht ab und kann `OK`
+  melden, bevor dieser den Spieler noch wegzieht.
