@@ -198,6 +198,18 @@ class PaperArrivalsTest {
     }
 
     @Test
+    void cancelAfterAlreadyHereAnswerDoesNotTeleport() {
+        PaperPlayerMock p = join();
+        CompletableFuture<ArrivalStatus> f = arrivals.prepare("r1", UUID_1, at("world", 80));
+        step();
+        assertThat(f).isCompletedWithValue(ArrivalStatus.ALREADY_HERE);
+        arrivals.cancel("r1", UUID_1);
+        runAll();
+        assertThat(p.getLocation().getY()).isNotEqualTo(80);
+        assertThat(reports).isEmpty();
+    }
+
+    @Test
     void nonFiniteYawIsNotAppliedAtSpawn() {
         prepare(new NetworkLocation("lobby-01", "world", 1.5, 64, -3, Float.NaN, 10));
         assertThat(arrivals.spawnLocation(UUID_1)).isEmpty();
