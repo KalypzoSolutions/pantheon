@@ -173,6 +173,36 @@ class PaperArrivalsTest {
         assertThat(reports).isEmpty();
     }
 
+    /** The CancelArrival overtook the hop of its PrepareArrival to the main thread. */
+    @Test
+    void cancelBeforePrepareRunsNotesNothing() {
+        CompletableFuture<ArrivalStatus> f = arrivals.prepare("r1", UUID_1, at("world", 80));
+        arrivals.cancel("r1", UUID_1);
+        runAll();
+        assertThat(f).isDone();
+        assertThat(arrivals.spawnLocation(UUID_1)).isEmpty();
+        PaperPlayerMock p = join();
+        assertThat(p.getLocation().getY()).isNotEqualTo(80);
+        assertThat(reports).isEmpty();
+    }
+
+    @Test
+    void cancelBeforePrepareRunsDoesNotTeleportLocalPlayer() {
+        PaperPlayerMock p = join();
+        CompletableFuture<ArrivalStatus> f = arrivals.prepare("r1", UUID_1, at("world", 80));
+        arrivals.cancel("r1", UUID_1);
+        runAll();
+        assertThat(f).isDone();
+        assertThat(p.getLocation().getY()).isNotEqualTo(80);
+        assertThat(reports).isEmpty();
+    }
+
+    @Test
+    void nonFiniteYawIsNotAppliedAtSpawn() {
+        prepare(new NetworkLocation("lobby-01", "world", 1.5, 64, -3, Float.NaN, 10));
+        assertThat(arrivals.spawnLocation(UUID_1)).isEmpty();
+    }
+
     @Test
     void expiredEntryIsIgnored() {
         prepare(at("world", 64));

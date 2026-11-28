@@ -42,6 +42,8 @@ final class PaperArrivals implements ArrivalHandler, Listener {
     }
 
     private final ConcurrentHashMap<UUID, Pending> pending = new ConcurrentHashMap<>();
+    /** Cancelled request ids until their TTL: a CancelArrival can overtake its PrepareArrival's hop to the main thread. */
+    private final ConcurrentHashMap<String, Instant> cancelled = new ConcurrentHashMap<>();
     private final Server server;
     private final Predicate<UUID> joined;
     private final BiConsumer<String, Boolean> report;
@@ -80,6 +82,10 @@ final class PaperArrivals implements ArrivalHandler, Listener {
 
     private void prepareNow(String requestId, UUID uuid, @Nullable NetworkLocation location,
                             CompletableFuture<ArrivalStatus> answer) {
+        if (cancelled(requestId)) { // already cancelled: the late answer is ignored, nothing is noted or teleported
+            answer.complete(ArrivalStatus.READY);
+            return;
+        }
         Location target = null;
         if (location != null) {
             World world = server.getWorld(location.worldName());
@@ -94,6 +100,7 @@ final class PaperArrivals implements ArrivalHandler, Listener {
             Location to = target;
             try {
                 mainThread.execute(() -> {
+                    if (cancelled(requestId)) return; // cancelled since the answer
                     Player p = server.getPlayer(uuid);
                     if (p == null) report(requestId, false); // quit in between
                     else arrive(requestId, p, to);
@@ -104,13 +111,26 @@ final class PaperArrivals implements ArrivalHandler, Listener {
             }
             return;
         }
-        pending.put(uuid, new Pending(requestId, target, clock.instant().plus(TTL), false));
+        Location noted = target;
+        // under the key's lock, so a cancel cannot slip between the check and the put
+        pending.compute(uuid, (k, p) -> cancelled(requestId) ? p
+                : new Pending(requestId, noted, clock.instant().plus(TTL), false));
         answer.complete(ArrivalStatus.READY);
     }
 
     @Override
     public void cancel(String requestId, UUID player) {
-        pending.computeIfPresent(player, (k, p) -> p.requestId().equals(requestId) ? null : p);
+        Instant now = clock.instant();
+        cancelled.values().removeIf(now::isAfter);
+        pending.compute(player, (k, p) -> {
+            cancelled.put(requestId, now.plus(TTL));
+            return p != null && p.requestId().equals(requestId) ? null : p;
+        });
+    }
+
+    private boolean cancelled(String requestId) {
+        Instant until = cancelled.get(requestId);
+        return until != null && !clock.instant().isAfter(until);
     }
 
     /** The noted spawn location of {@code player}, marked as applied; empty if none, connect only, non-finite or expired. */
@@ -122,7 +142,8 @@ final class PaperArrivals implements ArrivalHandler, Listener {
             if (now.isAfter(p.expires())) return null;
             Location l = p.location();
             // connect only, or non-finite (Paper would reject it): the join's fallback teleport decides
-            if (l == null || !Double.isFinite(l.getX()) || !Double.isFinite(l.getY()) || !Double.isFinite(l.getZ())) {
+            if (l == null || !Double.isFinite(l.getX()) || !Double.isFinite(l.getY()) || !Double.isFinite(l.getZ())
+                    || !Float.isFinite(l.getYaw()) || !Float.isFinite(l.getPitch())) {
                 return p;
             }
             found[0] = p.location().clone();
