@@ -24,6 +24,8 @@ class LocalTeleportTest {
     private ServerMock server;
     private PlayerMock player;
     private LocalPanPlayerImpl local;
+    private PanPlayer network;
+    private Doc data;
 
     @BeforeEach
     void setUp() {
@@ -40,13 +42,13 @@ class LocalTeleportTest {
         };
         server.addPlayer(player);
         // the network view is a fake: every network call answers TIMEOUT
-        PanPlayer network = (PanPlayer) Proxy.newProxyInstance(getClass().getClassLoader(),
+        network = (PanPlayer) Proxy.newProxyInstance(getClass().getClassLoader(),
                 new Class<?>[] {PanPlayer.class}, (proxy, method, args) ->
                         switch (method.getName()) {
                             case "teleport", "connect" -> CompletableFuture.completedFuture(TeleportResult.TIMEOUT);
                             default -> throw new UnsupportedOperationException(method.getName());
                         });
-        Doc data = (Doc) Proxy.newProxyInstance(getClass().getClassLoader(), new Class<?>[] {Doc.class},
+        data = (Doc) Proxy.newProxyInstance(getClass().getClassLoader(), new Class<?>[] {Doc.class},
                 (proxy, method, args) -> {
                     throw new UnsupportedOperationException();
                 });
@@ -78,6 +80,15 @@ class LocalTeleportTest {
     @Test
     void nanCoordinatesAreConnectFailed() {
         assertThat(teleport("lobby-01", "world", Double.NaN)).isEqualTo(TeleportResult.CONNECT_FAILED);
+    }
+
+    @Test
+    void rejectedMainThreadIsConnectFailed() {
+        LocalPanPlayerImpl rejecting = new LocalPanPlayerImpl(player, data, r -> {
+            throw new java.util.concurrent.RejectedExecutionException();
+        }, "lobby-01", self -> network);
+        assertThat(rejecting.teleport(new NetworkLocation("lobby-01", "world", 1, 2, 3, 0, 0)).join())
+                .isEqualTo(TeleportResult.CONNECT_FAILED);
     }
 
     @Test
