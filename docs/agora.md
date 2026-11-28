@@ -872,7 +872,7 @@ Proxys brauchen die Outbox nur, wenn Plugins auf ihnen Daten schreiben.
 - **Teleport als fester Ablauf in Agora** (Ansatz A), kein allgemeiner Request/Response-Kanal für Plugins. Agora sieht
   Presence, Zielserver und Proxy als einziges, und der Ablauf überlebt den Wegfall des Aufrufers ([§4](#teleport)).
 - **Ein Teleport pro Spieler, der neueste gewinnt.** Der neue wartet auf ein noch offenes `ConnectPlayer` des Spielers
-  (höchstens 10 s), weil Velocity sonst einen zweiten Connect ablehnt oder der alte Connect den Spieler wegzieht.
+  (höchstens `AGORA_TELEPORT_CONNECT_MS`, Default 10 s), weil Velocity sonst einen zweiten Connect ablehnt oder der alte Connect den Spieler wegzieht.
 - **`CancelArrival` nach jedem Abbruch nach `PrepareArrival`**, solange die Session des Ziels offen ist. So landet ein
   später ankommender Spieler nie an einem alten Ort.
 - **Grenzen des Teleports:** Ein lokaler Teleport (Spieler und Ziel auf dem aufrufenden Server) läuft an Agora vorbei und löst keinen Netzwerk-Teleport ab. Ein
