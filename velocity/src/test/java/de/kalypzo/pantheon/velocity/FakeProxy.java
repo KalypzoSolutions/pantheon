@@ -1,6 +1,7 @@
 package de.kalypzo.pantheon.velocity;
 
 import de.kalypzo.agora.proto.v1.ClaimPresenceRequest;
+import de.kalypzo.agora.proto.v1.ConnectStatus;
 import de.kalypzo.agora.proto.v1.ClaimPresenceResponse;
 import de.kalypzo.agora.proto.v1.NodeMessage;
 import net.kyori.adventure.sound.Sound;
@@ -31,6 +32,9 @@ final class FakeProxy {
         final List<Object> received = new CopyOnWriteArrayList<>();
         volatile Component disconnected;
         volatile boolean soundSupported = true;
+        volatile CompletableFuture<ConnectStatus> connectResult =
+                CompletableFuture.completedFuture(ConnectStatus.CONNECTED);
+        volatile String connectedTo;
 
         Player(UUID uuid, String name, String server) {
             this.uuid = uuid;
@@ -47,6 +51,7 @@ final class FakeProxy {
         @Override public void showTitle(Title t) { received.add(t); }
         @Override public boolean playSound(Sound s) { if (soundSupported) received.add(s); return soundSupported; }
         @Override public void disconnect(Component c) { disconnected = c; }
+        @Override public CompletableFuture<ConnectStatus> connect(String s) { connectedTo = s; return connectResult; }
     }
 
     static final class Players implements ProxyPlayers {

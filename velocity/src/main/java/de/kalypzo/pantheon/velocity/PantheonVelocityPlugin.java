@@ -13,8 +13,10 @@ import com.velocitypowered.api.event.proxy.ProxyShutdownEvent;
 import com.velocitypowered.api.plugin.Plugin;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
+import com.velocitypowered.api.proxy.server.RegisteredServer;
 import de.kalypzo.agora.proto.v1.ClaimPresenceRequest;
 import de.kalypzo.agora.proto.v1.ClaimPresenceResponse;
+import de.kalypzo.agora.proto.v1.ConnectStatus;
 import de.kalypzo.agora.proto.v1.NodeKind;
 import de.kalypzo.agora.proto.v1.NodeMessage;
 import de.kalypzo.agora.proto.v1.ServiceMessage;
@@ -95,6 +97,7 @@ public final class PantheonVelocityPlugin {
             }
         };
         ProxyKickHandler kicks = new ProxyKickHandler(players, link);
+        ProxyConnectHandler connects = new ProxyConnectHandler(players, link);
         reporter = new ProxyPresenceReporter(config.nodeId(), players, link, Clock.systemUTC());
         connection = new AgoraConnection(config, NodeKind.VELOCITY, reporter.state(), new ConnectionListener() {
             @Override
@@ -106,6 +109,7 @@ public final class PantheonVelocityPlugin {
             public void onMessage(ServiceMessage message) {
                 switch (message.getPayloadCase()) {
                     case KICK_PLAYER -> kicks.handle(message.getKickPlayer());
+                    case CONNECT_PLAYER -> connects.handle(message.getConnectPlayer());
                     case DELIVER -> delivery.handle(message.getDeliver());
                     default -> { }
                 }
@@ -174,16 +178,16 @@ public final class PantheonVelocityPlugin {
 
         @Override
         public Collection<ProxyPlayer> online() {
-            return server.getAllPlayers().stream().<ProxyPlayer>map(VelocityPlayer::new).toList();
+            return server.getAllPlayers().stream().<ProxyPlayer>map(p -> new VelocityPlayer(p, server)).toList();
         }
 
         @Override
         public Optional<ProxyPlayer> find(UUID uuid) {
-            return server.getPlayer(uuid).map(VelocityPlayer::new);
+            return server.getPlayer(uuid).map(p -> new VelocityPlayer(p, server));
         }
     }
 
-    private record VelocityPlayer(Player player) implements ProxyPlayer {
+    private record VelocityPlayer(Player player, ProxyServer server) implements ProxyPlayer {
         @Override public UUID uuid() { return player.getUniqueId(); }
         @Override public String name() { return player.getUsername(); }
 
@@ -206,5 +210,20 @@ public final class PantheonVelocityPlugin {
         @Override public boolean playSound(Sound sound) { return false; }
 
         @Override public void disconnect(Component reason) { player.disconnect(reason); }
+
+        @Override
+        public CompletableFuture<ConnectStatus> connect(String name) {
+            try {
+                Optional<RegisteredServer> target = server.getServer(name);
+                if (target.isEmpty()) {
+                    return CompletableFuture.completedFuture(ConnectStatus.FAILED);
+                }
+                return player.createConnectionRequest(target.get()).connect()
+                        .thenApply(r -> ProxyConnectHandler.fromVelocity(r.getStatus()))
+                        .exceptionally(e -> ConnectStatus.FAILED);
+            } catch (RuntimeException e) {
+                return CompletableFuture.completedFuture(ConnectStatus.FAILED);
+            }
+        }
     }
 }
