@@ -1,0 +1,3 @@
+{"what": "de.kalypzo.pantheon.core.backend.agora.MainThreadBench.pantheonIncFlood", "expected": 270281, "stored": 270281}
+{"what": "de.kalypzo.pantheon.core.backend.agora.MainThreadBench.pantheonInc", "expected": 21783, "stored": 21783}
+{"what": "pantheonBurst100", "expected": 227100, "stored": 227100}

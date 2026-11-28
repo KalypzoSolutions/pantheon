@@ -25,6 +25,11 @@ archunit = "1.5.1"
 awaitility = "4.3.0"
 testcontainers = "2.0.5"
 
+# Benchmarks (core/src/jmh)
+jmh = "1.37"
+hikaricp = "7.0.2"
+postgresql = "42.7.15"
+
 [libraries]
 agora-proto = { module = "de.kalypzo:agora-proto", version.ref = "agora" }
 agora-server = { module = "de.kalypzo:agora-server", version.ref = "agora" }
@@ -55,6 +60,11 @@ mockbukkit = { module = "org.mockbukkit.mockbukkit:mockbukkit-v26.3", version.re
 testcontainers-bom = { module = "org.testcontainers:testcontainers-bom", version.ref = "testcontainers" }
 testcontainers-junit-jupiter = { module = "org.testcontainers:testcontainers-junit-jupiter" }
 testcontainers-postgresql = { module = "org.testcontainers:testcontainers-postgresql" }
+grpc-services = { module = "io.grpc:grpc-services", version.ref = "grpc" }
+jmh-core = { module = "org.openjdk.jmh:jmh-core", version.ref = "jmh" }
+jmh-generator-annprocess = { module = "org.openjdk.jmh:jmh-generator-annprocess", version.ref = "jmh" }
+hikaricp = { module = "com.zaxxer:HikariCP", version.ref = "hikaricp" }
+postgresql = { module = "org.postgresql:postgresql", version.ref = "postgresql" }
 
 [plugins]
 shadow = { id = "com.gradleup.shadow", version.ref = "shadow" }

@@ -1,0 +1,16 @@
+{"target": "players", "n": 1000, "order": "desc", "index": "pantheon_player_bench_idx_coins", "plan": "none"}
+{"target": "players", "n": 1000, "order": "asc", "index": "pantheon_player_bench_idx_coins", "plan": "none"}
+{"target": "store", "n": 1000, "order": "desc", "index": "pantheon_doc_bench_idx_rank_coins", "plan": "order"}
+{"target": "store", "n": 1000, "order": "asc", "index": "pantheon_doc_bench_idx_rank_coins", "plan": "none"}
+{"target": "players", "n": 10000, "order": "desc", "index": "pantheon_player_bench_idx_coins", "plan": "none"}
+{"target": "players", "n": 10000, "order": "asc", "index": "pantheon_player_bench_idx_coins", "plan": "none"}
+{"target": "store", "n": 10000, "order": "desc", "index": "pantheon_doc_bench_idx_rank_coins", "plan": "order"}
+{"target": "store", "n": 10000, "order": "asc", "index": "pantheon_doc_bench_idx_rank_coins", "plan": "none"}
+{"target": "players", "n": 100000, "order": "desc", "index": "pantheon_player_bench_idx_coins", "plan": "none"}
+{"target": "players", "n": 100000, "order": "asc", "index": "pantheon_player_bench_idx_coins", "plan": "none"}
+{"target": "store", "n": 100000, "order": "desc", "index": "pantheon_doc_bench_idx_rank_coins", "plan": "order"}
+{"target": "store", "n": 100000, "order": "asc", "index": "pantheon_doc_bench_idx_rank_coins", "plan": "none"}
+{"target": "players", "n": 1000000, "order": "desc", "index": "pantheon_player_bench_idx_coins", "plan": "none"}
+{"target": "players", "n": 1000000, "order": "asc", "index": "pantheon_player_bench_idx_coins", "plan": "none"}
+{"target": "store", "n": 1000000, "order": "desc", "index": "pantheon_doc_bench_idx_rank_coins", "plan": "order"}
+{"target": "store", "n": 1000000, "order": "asc", "index": "pantheon_doc_bench_idx_rank_coins", "plan": "none"}

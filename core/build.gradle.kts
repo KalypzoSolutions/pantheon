@@ -59,3 +59,39 @@ val integrationTest by tasks.registering(Test::class) {
 tasks.check {
     dependsOn(integrationTest)
 }
+
+// Benchmarks (docs/benchmark.md): JMH in its own source set, on top of the test classes (AgoraContractFixture).
+// Never part of check or CI; ./gradlew :core:benchmark [-Pbench=<regex>] [-Pbench.quick]
+val jmh = sourceSets.create("jmh") {
+    compileClasspath += sourceSets.test.get().output + sourceSets.main.get().output
+    runtimeClasspath += sourceSets.test.get().output + sourceSets.main.get().output
+}
+configurations["jmhImplementation"].extendsFrom(configurations.testImplementation.get())
+configurations["jmhRuntimeOnly"].extendsFrom(configurations.testRuntimeOnly.get())
+
+dependencies {
+    "jmhImplementation"(libs.jmh.core)
+    "jmhImplementation"(libs.hikaricp)
+    "jmhImplementation"(libs.postgresql)
+    "jmhImplementation"(libs.grpc.services) // health check: the transport floor in OpLatencyBench
+    "jmhAnnotationProcessor"(libs.jmh.generator.annprocess)
+}
+
+tasks.register<JavaExec>("benchmark") {
+    description = "Runs the JMH benchmarks (Testcontainers Postgres, in-process Agora). See docs/benchmark.md."
+    group = "verification"
+    classpath = jmh.runtimeClasspath
+    mainClass = "de.kalypzo.pantheon.core.backend.agora.BenchRunner"
+    workingDir = layout.buildDirectory.get().asFile // profiler output (-Pbench.prof=jfr) lands in build/
+    val out = layout.buildDirectory.dir("results/jmh")
+    args(providers.gradleProperty("bench").getOrElse(".*"))
+    systemProperty("bench.out", out.get().asFile.absolutePath)
+    systemProperty("bench.quick", providers.gradleProperty("bench.quick").isPresent.toString())
+    systemProperty("bench.prof", providers.gradleProperty("bench.prof").getOrElse(""))
+    systemProperty("bench.commit", providers.exec { commandLine("git", "describe", "--always", "--dirty") }
+        .standardOutput.asText.get().trim())
+}
+
+tasks.check {
+    dependsOn(tasks.named("compileJmhJava"))
+}
