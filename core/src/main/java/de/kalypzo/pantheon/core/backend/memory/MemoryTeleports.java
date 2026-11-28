@@ -44,7 +44,7 @@ final class MemoryTeleports {
         @Nullable ProxyConnector proxy;
         boolean prepareSent;
         boolean connectAnswered;
-        boolean done;
+        volatile boolean done; // also read by the prepare call, outside the lock
 
         Flow(UUID player, String server, @Nullable NetworkLocation location) {
             this.player = player;
@@ -153,6 +153,7 @@ final class MemoryTeleports {
 
     /** Outside the lock: {@code PrepareArrival}; no answer that can be read is {@code UNSPECIFIED}. */
     private void prepare(ArrivalHandler handler, Flow flow) {
+        if (flow.done) return; // ended in between (e.g. superseded from another action): its cancel may have run
         CompletableFuture<ArrivalStatus> answer;
         try {
             answer = handler.prepare(flow.requestId, flow.player, flow.location);

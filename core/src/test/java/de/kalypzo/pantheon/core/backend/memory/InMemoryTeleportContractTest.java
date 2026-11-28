@@ -64,6 +64,31 @@ class InMemoryTeleportContractTest extends TeleportContract {
         }
     }
 
+    /** A teleport that ended before its prepare call gets none: its cancel may already have run. */
+    @Test
+    void endedBeforePrepareCallsNoPrepare() throws Exception {
+        try (InMemoryNetwork network = new InMemoryNetwork()) {
+            RecordingArrivals arrivals = new RecordingArrivals();
+            arrivals.answer = pr -> new CompletableFuture<>();
+            network.node("lobby-02").answerArrivals(arrivals);
+            network.proxyConnects((pl, s) -> CompletableFuture.completedFuture(ConnectStatus.CONNECTED));
+            UUID p = UUID.randomUUID();
+            network.join(new PresenceEntry(p, "Test", "lobby-01", PROXY, Locale.GERMANY, Instant.now()));
+            InMemoryNetwork.Node a = network.node("lobby-01");
+            CompletableFuture<TeleportResult> t1 = a.teleport(p, "lobby-02", at(1));
+            // T1 completes among the actions of T2's transition, before T2's prepare; T3 then supersedes T2.
+            t1.thenRun(() -> a.teleport(p, "lobby-02", at(3)));
+            CompletableFuture<TeleportResult> t2 = a.teleport(p, "lobby-02", at(2));
+
+            assertThat(t2.get(2, TimeUnit.SECONDS)).isEqualTo(TeleportResult.SUPERSEDED);
+            assertThat(arrivals.prepared).extracting(pr -> pr.location().x()).containsExactly(1.0, 3.0);
+        }
+    }
+
+    private static NetworkLocation at(double x) {
+        return new NetworkLocation("lobby-02", "world", x, 64, -3, 90, 10);
+    }
+
     /** A fresh player on {@code lobby-01}, teleported by {@code lobby-01} to {@code lobby-02}. */
     private static TeleportResult teleport(InMemoryNetwork network) throws Exception {
         UUID p = UUID.randomUUID();
