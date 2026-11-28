@@ -2,7 +2,10 @@ package de.kalypzo.pantheon.core.backend.agora;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
+import de.kalypzo.agora.proto.v1.ArrivalFailed;
+import de.kalypzo.agora.proto.v1.ArrivalPrepared;
 import de.kalypzo.agora.proto.v1.Barrier;
+import de.kalypzo.agora.proto.v1.CancelArrival;
 import de.kalypzo.agora.proto.v1.CountRequest;
 import de.kalypzo.agora.proto.v1.CreateRequest;
 import de.kalypzo.agora.proto.v1.DeclareIndexRequest;
@@ -17,11 +20,15 @@ import de.kalypzo.agora.proto.v1.LocationReply;
 import de.kalypzo.agora.proto.v1.LocationRequest;
 import de.kalypzo.agora.proto.v1.NodeKind;
 import de.kalypzo.agora.proto.v1.NodeMessage;
+import de.kalypzo.agora.proto.v1.PlayerArrived;
+import de.kalypzo.agora.proto.v1.PrepareArrival;
 import de.kalypzo.agora.proto.v1.QueryRequest;
 import de.kalypzo.agora.proto.v1.ReleasePlayer;
 import de.kalypzo.agora.proto.v1.RowVersion;
 import de.kalypzo.agora.proto.v1.SendDelivery;
 import de.kalypzo.agora.proto.v1.ServiceMessage;
+import de.kalypzo.agora.proto.v1.TeleportRequest;
+import de.kalypzo.agora.proto.v1.TeleportResponse;
 import de.kalypzo.agora.proto.v1.TransferRequest;
 import de.kalypzo.agora.proto.v1.UnwatchStore;
 import de.kalypzo.agora.proto.v1.VersionsRequest;
@@ -34,6 +41,8 @@ import de.kalypzo.pantheon.agora.NodeStateSupplier;
 import de.kalypzo.pantheon.core.audit.AuditBundle;
 import de.kalypzo.pantheon.core.audit.TimelineResult;
 import de.kalypzo.pantheon.core.audit.TimelineSpec;
+import de.kalypzo.pantheon.core.backend.ArrivalHandler;
+import de.kalypzo.pantheon.core.backend.ArrivalStatus;
 import de.kalypzo.pantheon.core.backend.Backend;
 import de.kalypzo.pantheon.core.backend.ConnectionState;
 import de.kalypzo.pantheon.core.backend.Delivery;
@@ -63,6 +72,7 @@ import de.kalypzo.pantheon.data.DuplicateValueException;
 import de.kalypzo.pantheon.data.Subscription;
 import de.kalypzo.pantheon.player.ExpectedOnlinePlayerException;
 import de.kalypzo.pantheon.world.NetworkLocation;
+import de.kalypzo.pantheon.world.TeleportResult;
 import io.grpc.Status;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -85,6 +95,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.logging.Level;
@@ -117,6 +128,9 @@ import org.jspecify.annotations.Nullable;
  *       fails with {@link DataUnavailableException} when not connected, when the stream ends first, or after 5 s.
  *       The future completes on the gRPC thread; {@code DocChanged} events received before the ack may still be
  *       queued for the listeners (the barrier orders this node's messages at Agora, not the local dispatch).
+ *   <li>Teleport: {@link #teleport} never fails; {@link #teleportResult} maps every outcome. {@code PrepareArrival}
+ *       goes to the {@link ArrivalHandler}; without one, or when it fails, the answer is
+ *       {@code ARRIVAL_STATUS_UNSPECIFIED} (Agora: {@code SERVER_UNAVAILABLE}).
  * </ul>
  *
  * Listeners run on one event thread of this backend, in stream order. Thread-safe. The token never appears in
@@ -127,6 +141,9 @@ public final class AgoraBackend implements Backend {
     private static final Logger LOG = Logger.getLogger(AgoraBackend.class.getName());
 
     static final long BARRIER_TIMEOUT_MILLIS = 5_000;
+    static final long TELEPORT_DEADLINE_SECONDS = 40;
+
+    private static final AtomicBoolean teleportUnimplementedWarned = new AtomicBoolean();
 
     private final String nodeId;
     private final AgoraConnection connection;
@@ -145,6 +162,7 @@ public final class AgoraBackend implements Backend {
     private boolean started;                                            // guarded by lock
     private boolean closed;                                             // guarded by lock
     private volatile @Nullable LocationResolver resolver;
+    private volatile @Nullable ArrivalHandler arrivals;
 
     public AgoraBackend(NodeConfig config) {
         this.nodeId = config.nodeId();
@@ -405,6 +423,84 @@ public final class AgoraBackend implements Backend {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
     }
 
+    /** Teleport with a 40 s deadline (Agora ends it after 38 s); every outcome is mapped by {@link #teleportResult}. */
+    @Override
+    public CompletableFuture<TeleportResult> teleport(UUID player, String server, @Nullable NetworkLocation location) {
+        Objects.requireNonNull(player, "player");
+        Objects.requireNonNull(server, "server");
+        if (!connection.connected()) return CompletableFuture.completedFuture(TeleportResult.NETWORK_UNAVAILABLE);
+        ListenableFuture<TeleportResponse> call;
+        try {
+            var b = TeleportRequest.newBuilder().setPlayer(player.toString()).setServer(server);
+            if (location != null) b.setLocation(ProtoMapper.toProto(location));
+            call = connection.stub().withDeadlineAfter(TELEPORT_DEADLINE_SECONDS, TimeUnit.SECONDS).teleport(b.build());
+        } catch (RuntimeException e) {
+            return CompletableFuture.completedFuture(teleportResult(null, e));
+        }
+        CompletableFuture<TeleportResult> result = new CompletableFuture<>();
+        call.addListener(() -> {
+            TeleportResponse response = null;
+            Throwable error = null;
+            try {
+                response = call.get();
+            } catch (ExecutionException e) {
+                error = e.getCause() == null ? e : e.getCause();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                error = e;
+            } catch (RuntimeException e) {
+                error = e;
+            }
+            result.complete(teleportResult(response, error));
+        }, MoreExecutors.directExecutor());
+        return result;
+    }
+
+    @Override
+    public void answerArrivals(ArrivalHandler handler) {
+        this.arrivals = Objects.requireNonNull(handler, "handler");
+    }
+
+    /** {@code PlayerArrived}/{@code ArrivalFailed}; lost while disconnected (Agora then ends with TIMEOUT). */
+    @Override
+    public void reportArrival(String requestId, boolean arrived) {
+        Objects.requireNonNull(requestId, "requestId");
+        var m = NodeMessage.newBuilder();
+        if (arrived) m.setPlayerArrived(PlayerArrived.newBuilder().setRequestId(requestId));
+        else m.setArrivalFailed(ArrivalFailed.newBuilder().setRequestId(requestId));
+        connection.send(m.build());
+    }
+
+    /** The spec table "Fehlerzuordnung im Client": the call's outcome → result, never an exception. */
+    static TeleportResult teleportResult(@Nullable TeleportResponse response, @Nullable Throwable error) {
+        if (error == null && response != null) {
+            TeleportResult r = ProtoMapper.fromProto(response.getStatus());
+            if (r != null) return r;
+            LOG.warning("Agora answered Teleport with unknown status " + response.getStatusValue());
+            return TeleportResult.CONNECT_FAILED;
+        }
+        Status status = error == null ? Status.UNKNOWN.withDescription("no response") : Status.fromThrowable(error);
+        switch (status.getCode()) {
+            case UNAVAILABLE -> {
+                return TeleportResult.NETWORK_UNAVAILABLE;
+            }
+            case DEADLINE_EXCEEDED -> {
+                return TeleportResult.TIMEOUT;
+            }
+            case UNIMPLEMENTED -> {
+                if (!teleportUnimplementedWarned.getAndSet(true)) {
+                    LOG.warning("Agora does not know Teleport (older than this Pantheon): update Agora");
+                }
+                return TeleportResult.NETWORK_UNAVAILABLE;
+            }
+            default -> {
+                LOG.log(Level.WARNING, "Teleport failed: " + status.getCode()
+                        + (status.getDescription() == null ? "" : " " + status.getDescription()), error);
+                return TeleportResult.NETWORK_UNAVAILABLE;
+            }
+        }
+    }
+
     // ---------- MessageBackend ----------
 
     @Override
@@ -586,6 +682,59 @@ public final class AgoraBackend implements Backend {
         });
     }
 
+    private void onPrepareArrival(PrepareArrival request) {
+        String id = request.getRequestId();
+        UUID player = uuid(request.getPlayer(), "PrepareArrival");
+        if (player == null) return;
+        ArrivalHandler h = arrivals;
+        if (h == null) {
+            LOG.warning("PrepareArrival for " + player + " on " + nodeId + ", but no arrival handler is registered");
+            prepared(id, null);
+            return;
+        }
+        CompletableFuture<ArrivalStatus> answer;
+        try {
+            answer = Objects.requireNonNull(h.prepare(id, player,
+                    request.hasLocation() ? ProtoMapper.fromProto(request.getLocation()) : null), "prepare future");
+        } catch (RuntimeException e) {
+            LOG.log(Level.WARNING, "Arrival handler failed for " + player, e);
+            prepared(id, null);
+            return;
+        }
+        answer.whenComplete((status, e) -> {
+            if (e != null || status == null) LOG.log(Level.WARNING, "Arrival handler failed for " + player, e);
+            prepared(id, e == null ? status : null);
+        });
+    }
+
+    /** {@code null}: the handler could not answer ({@code ARRIVAL_STATUS_UNSPECIFIED}). */
+    private void prepared(String requestId, @Nullable ArrivalStatus status) {
+        connection.send(NodeMessage.newBuilder().setArrivalPrepared(ArrivalPrepared.newBuilder()
+                .setRequestId(requestId).setStatus(status == null
+                        ? de.kalypzo.agora.proto.v1.ArrivalStatus.ARRIVAL_STATUS_UNSPECIFIED
+                        : ProtoMapper.toProto(status))).build());
+    }
+
+    private void onCancelArrival(CancelArrival request) {
+        UUID player = uuid(request.getPlayer(), "CancelArrival");
+        ArrivalHandler h = arrivals;
+        if (player == null || h == null) return;
+        try {
+            h.cancel(request.getRequestId(), player);
+        } catch (RuntimeException e) {
+            LOG.log(Level.WARNING, "Arrival handler failed to cancel for " + player, e);
+        }
+    }
+
+    private static @Nullable UUID uuid(String player, String what) {
+        try {
+            return UUID.fromString(player);
+        } catch (IllegalArgumentException e) {
+            LOG.fine(() -> "Ignoring " + what + " with invalid player '" + player + "'");
+            return null;
+        }
+    }
+
     private void reply(LocationRequest request, Optional<NetworkLocation> found) {
         var b = LocationReply.newBuilder().setRequestId(request.getRequestId()).setFound(found.isPresent());
         found.ifPresent(l -> b.setLocation(ProtoMapper.toProto(l)));
@@ -670,6 +819,8 @@ public final class AgoraBackend implements Backend {
                 case DOC_CHANGED -> onDocChanged(ProtoMapper.fromProto(m.getDocChanged()));
                 case PRESENCE_CHANGED -> onPresenceChanged(m.getPresenceChanged());
                 case LOCATION_REQUEST -> onLocationRequest(m.getLocationRequest());
+                case PREPARE_ARRIVAL -> onPrepareArrival(m.getPrepareArrival());
+                case CANCEL_ARRIVAL -> onCancelArrival(m.getCancelArrival());
                 case BARRIER_ACK -> {
                     CompletableFuture<Void> f = barriers.get(m.getBarrierAck().getRequestId());
                     if (f != null) f.complete(null);

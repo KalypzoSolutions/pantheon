@@ -4,6 +4,7 @@ import de.kalypzo.pantheon.core.backend.Backend;
 import de.kalypzo.pantheon.core.backend.ContractFixture;
 import de.kalypzo.pantheon.core.backend.Delivered;
 import de.kalypzo.pantheon.core.backend.PresenceEntry;
+import de.kalypzo.pantheon.core.backend.ProxyConnector;
 import java.util.List;
 import java.util.UUID;
 
@@ -35,6 +36,16 @@ final class InMemoryContractFixture implements ContractFixture {
     @Override
     public List<Delivered> deliveries(String proxyId) {
         return network.deliveries(proxyId);
+    }
+
+    @Override
+    public void proxyConnects(ProxyConnector connector) {
+        throw new UnsupportedOperationException("the in-memory proxy hook comes with T-7");
+    }
+
+    @Override
+    public void disconnect(String nodeId) {
+        network.outage(nodeId);
     }
 
     @Override

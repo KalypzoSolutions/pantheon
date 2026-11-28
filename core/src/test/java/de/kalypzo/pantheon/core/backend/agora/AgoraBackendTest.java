@@ -19,6 +19,8 @@ import de.kalypzo.agora.proto.v1.LocateRequest;
 import de.kalypzo.agora.proto.v1.LocateResponse;
 import de.kalypzo.agora.proto.v1.NodeMessage;
 import de.kalypzo.agora.proto.v1.ServiceMessage;
+import de.kalypzo.agora.proto.v1.TeleportResponse;
+import de.kalypzo.agora.proto.v1.TeleportStatus;
 import de.kalypzo.pantheon.agora.NodeConfigException;
 import de.kalypzo.pantheon.core.audit.AuditBundle;
 import de.kalypzo.pantheon.core.audit.AuditRecord;
@@ -43,6 +45,7 @@ import de.kalypzo.pantheon.data.DuplicateValueException;
 import de.kalypzo.pantheon.data.Field;
 import de.kalypzo.pantheon.data.DataNamespace;
 import de.kalypzo.pantheon.player.ExpectedOnlinePlayerException;
+import de.kalypzo.pantheon.world.TeleportResult;
 import io.grpc.Metadata;
 import io.grpc.Server;
 import io.grpc.ServerCall;
@@ -192,6 +195,42 @@ class AgoraBackendTest {
         }
         fake.locateFailure = null;
         assertThat(cause(backend.location(p))).isInstanceOf(ExpectedOnlinePlayerException.class);
+    }
+
+    /** Spec "Fehlerzuordnung im Client": every outcome of the call is a TeleportResult. */
+    @Test
+    void teleportResultMapping() {
+        for (Status s : List.of(Status.UNAVAILABLE, Status.UNIMPLEMENTED, Status.INTERNAL, Status.PERMISSION_DENIED,
+                Status.INVALID_ARGUMENT)) {
+            assertThat(AgoraBackend.teleportResult(null, s.asRuntimeException())).as(s.getCode().name())
+                    .isEqualTo(TeleportResult.NETWORK_UNAVAILABLE);
+        }
+        assertThat(AgoraBackend.teleportResult(null, Status.DEADLINE_EXCEEDED.asRuntimeException()))
+                .isEqualTo(TeleportResult.TIMEOUT);
+        assertThat(AgoraBackend.teleportResult(null, new IllegalStateException("not gRPC")))
+                .isEqualTo(TeleportResult.NETWORK_UNAVAILABLE);
+        assertThat(AgoraBackend.teleportResult(response(TeleportStatus.TELEPORT_STATUS_UNSPECIFIED), null))
+                .isEqualTo(TeleportResult.CONNECT_FAILED);
+        assertThat(AgoraBackend.teleportResult(TeleportResponse.newBuilder().setStatusValue(99).build(), null))
+                .isEqualTo(TeleportResult.CONNECT_FAILED);
+        for (TeleportStatus s : List.of(TeleportStatus.OK, TeleportStatus.NOT_ONLINE, TeleportStatus.SERVER_UNAVAILABLE,
+                TeleportStatus.WORLD_NOT_FOUND, TeleportStatus.CONNECT_FAILED, TeleportStatus.SUPERSEDED,
+                TeleportStatus.TIMEOUT)) {
+            assertThat(AgoraBackend.teleportResult(response(s), null)).isEqualTo(TeleportResult.valueOf(s.name()));
+        }
+    }
+
+    @Test
+    void teleportNotConnectedIsNetworkUnavailable() throws Exception {
+        backend = new AgoraBackend(config("localhost:1", "lobby-01")); // nothing listens there
+        backend.start(empty());
+
+        assertThat(backend.teleport(UUID.randomUUID(), "lobby-02", null).get(1, TimeUnit.SECONDS))
+                .isEqualTo(TeleportResult.NETWORK_UNAVAILABLE);
+    }
+
+    private static TeleportResponse response(TeleportStatus status) {
+        return TeleportResponse.newBuilder().setStatus(status).build();
     }
 
     @Test

@@ -8,6 +8,7 @@ import de.kalypzo.agora.proto.v1.AuditLocation;
 import de.kalypzo.agora.proto.v1.AuditValue;
 import de.kalypzo.agora.proto.v1.AuditViewer;
 import de.kalypzo.agora.proto.v1.StoredAuditEntry;
+import de.kalypzo.agora.proto.v1.TeleportStatus;
 import de.kalypzo.agora.proto.v1.TimelineRequest;
 import de.kalypzo.agora.proto.v1.TimelineResponse;
 import de.kalypzo.agora.proto.v1.Condition;
@@ -24,6 +25,8 @@ import de.kalypzo.pantheon.core.audit.StoredAuditRecord;
 import de.kalypzo.pantheon.core.audit.TimelineResult;
 import de.kalypzo.pantheon.core.audit.TimelineSpec;
 import de.kalypzo.pantheon.core.audit.Viewer;
+import de.kalypzo.pantheon.core.backend.ArrivalStatus;
+import de.kalypzo.pantheon.core.backend.ConnectStatus;
 import de.kalypzo.pantheon.core.backend.Delivery;
 import de.kalypzo.pantheon.core.backend.DeliveryKind;
 import de.kalypzo.pantheon.core.backend.PresenceEntry;
@@ -46,6 +49,7 @@ import de.kalypzo.pantheon.core.data.wire.StoreDoc;
 import de.kalypzo.pantheon.core.data.wire.StoreRef;
 import de.kalypzo.pantheon.core.data.wire.WriteRequest;
 import de.kalypzo.pantheon.world.NetworkLocation;
+import de.kalypzo.pantheon.world.TeleportResult;
 import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.time.Instant;
@@ -491,6 +495,39 @@ public final class ProtoMapper {
 
     public static NetworkLocation fromProto(de.kalypzo.agora.proto.v1.NetworkLocation l) {
         return new NetworkLocation(l.getServer(), l.getWorld(), l.getX(), l.getY(), l.getZ(), l.getYaw(), l.getPitch());
+    }
+
+    // ---------- teleport ----------
+
+    public static de.kalypzo.agora.proto.v1.ArrivalStatus toProto(ArrivalStatus s) {
+        return switch (s) {
+            case READY -> de.kalypzo.agora.proto.v1.ArrivalStatus.READY;
+            case WORLD_NOT_FOUND -> de.kalypzo.agora.proto.v1.ArrivalStatus.ARRIVAL_WORLD_NOT_FOUND;
+            case ALREADY_HERE -> de.kalypzo.agora.proto.v1.ArrivalStatus.ALREADY_HERE;
+        };
+    }
+
+    public static de.kalypzo.agora.proto.v1.ConnectStatus toProto(ConnectStatus s) {
+        return switch (s) {
+            case CONNECTED -> de.kalypzo.agora.proto.v1.ConnectStatus.CONNECTED;
+            case ALREADY_CONNECTED -> de.kalypzo.agora.proto.v1.ConnectStatus.ALREADY_CONNECTED;
+            case FAILED -> de.kalypzo.agora.proto.v1.ConnectStatus.FAILED;
+            case PLAYER_NOT_FOUND -> de.kalypzo.agora.proto.v1.ConnectStatus.PLAYER_NOT_FOUND;
+        };
+    }
+
+    /** {@code null} for {@code UNSPECIFIED} or a value this client does not know. */
+    public static @Nullable TeleportResult fromProto(TeleportStatus s) {
+        return switch (s) {
+            case OK -> TeleportResult.OK;
+            case NOT_ONLINE -> TeleportResult.NOT_ONLINE;
+            case SERVER_UNAVAILABLE -> TeleportResult.SERVER_UNAVAILABLE;
+            case WORLD_NOT_FOUND -> TeleportResult.WORLD_NOT_FOUND;
+            case CONNECT_FAILED -> TeleportResult.CONNECT_FAILED;
+            case SUPERSEDED -> TeleportResult.SUPERSEDED;
+            case TIMEOUT -> TeleportResult.TIMEOUT;
+            case TELEPORT_STATUS_UNSPECIFIED, UNRECOGNIZED -> null;
+        };
     }
 
     // ---------- delivery ----------

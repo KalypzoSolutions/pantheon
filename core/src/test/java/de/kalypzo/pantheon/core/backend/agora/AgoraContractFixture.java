@@ -5,6 +5,7 @@ import static org.awaitility.Awaitility.await;
 import de.kalypzo.agora.AgoraServer;
 import de.kalypzo.agora.config.AgoraConfig;
 import de.kalypzo.agora.proto.v1.ClaimPresenceRequest;
+import de.kalypzo.agora.proto.v1.ConnectResult;
 import de.kalypzo.agora.proto.v1.Heartbeat;
 import de.kalypzo.agora.proto.v1.Hello;
 import de.kalypzo.agora.proto.v1.KickResult;
@@ -26,6 +27,7 @@ import de.kalypzo.pantheon.core.backend.Delivered;
 import de.kalypzo.pantheon.core.backend.NodeState;
 import de.kalypzo.pantheon.core.backend.PresenceChange;
 import de.kalypzo.pantheon.core.backend.PresenceEntry;
+import de.kalypzo.pantheon.core.backend.ProxyConnector;
 import de.kalypzo.pantheon.core.data.wire.StoreRef;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
@@ -45,6 +47,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import org.jspecify.annotations.Nullable;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
 /**
@@ -52,8 +55,9 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
  * warm-up) on a Testcontainers Postgres shared by all tests of the JVM. Every fixture starts its own Agora (fresh
  * presence and holders; the database is shared, the suites use fresh ids). Nodes are {@link AgoraBackend}s; the
  * proxy {@code proxy-01} is a raw VELOCITY {@link AgoraConnection} that claims, switches, leaves, answers kicks and
- * records every {@code Deliver}. {@link #outage()}/{@link #restore()} stop the server and start it again on the same
- * port.
+ * {@code ConnectPlayer} (with the {@link ProxyConnector} given to {@link #proxyConnects}) and records every
+ * {@code Deliver}. Teleports run with the {@code TELEPORT_*} limits. {@link #outage()}/{@link #restore()} stop the
+ * server and start it again on the same port.
  */
 final class AgoraContractFixture implements ContractFixture {
 
@@ -86,11 +90,13 @@ final class AgoraContractFixture implements ContractFixture {
             for (String n : NODES) sb.append(n).append("=tok-").append(n).append('\n');
             Files.writeString(tokens, sb.toString());
             PostgreSQLContainer pg = Db.POSTGRES;
+            AgoraConfig.TeleportTimeouts teleport = new AgoraConfig.TeleportTimeouts(TELEPORT_PREPARE,
+                    TELEPORT_CONNECT, TELEPORT_ARRIVAL, TELEPORT_TOTAL);
             AgoraConfig first = new AgoraConfig(0, pg.getJdbcUrl(), pg.getUsername(), pg.getPassword(), 4, tokens,
-                    Duration.ZERO);
+                    Duration.ZERO, teleport);
             server = AgoraServer.start(first);
             config = new AgoraConfig(server.port(), first.dbUrl(), first.dbUser(), first.dbPassword(),
-                    first.dbPoolSize(), tokens, Duration.ZERO);
+                    first.dbPoolSize(), tokens, Duration.ZERO, teleport);
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
@@ -154,6 +160,16 @@ final class AgoraContractFixture implements ContractFixture {
     }
 
     @Override
+    public void proxyConnects(ProxyConnector connector) {
+        proxy.connector = connector;
+    }
+
+    @Override
+    public void disconnect(String nodeId) {
+        nodes.remove(nodeId).close();
+    }
+
+    @Override
     public void outage() {
         server.close();
         await().atMost(WAIT).until(() -> nodes.values().stream().allMatch(n -> n.state() != ConnectionState.CONNECTED)
@@ -194,6 +210,7 @@ final class AgoraContractFixture implements ContractFixture {
     private static final class Proxy implements ConnectionListener, NodeStateSupplier {
         final AgoraConnection connection;
         final List<Delivered> delivered = new CopyOnWriteArrayList<>();
+        volatile @Nullable ProxyConnector connector;
         private final Map<UUID, de.kalypzo.agora.proto.v1.PresenceEntry> players = new LinkedHashMap<>(); // by this
         private final String id;
 
@@ -280,8 +297,20 @@ final class AgoraContractFixture implements ContractFixture {
                     connection.send(NodeMessage.newBuilder().setKickResult(KickResult.newBuilder()
                             .setRequestId(m.getKickPlayer().getRequestId()).setWasOnline(wasOnline)).build());
                 }
+                case CONNECT_PLAYER -> connect(m.getConnectPlayer().getRequestId(),
+                        UUID.fromString(m.getConnectPlayer().getPlayer()), m.getConnectPlayer().getServer());
                 default -> {}
             }
+        }
+
+        /** Never waits on the stream thread: several tests answer with a future that stays open. */
+        private void connect(String requestId, UUID player, String server) {
+            ProxyConnector c = connector;
+            if (c == null) return;
+            c.connect(player, server).whenComplete((status, e) -> connection.send(NodeMessage.newBuilder()
+                    .setConnectResult(ConnectResult.newBuilder().setRequestId(requestId)
+                            .setStatus(e == null ? ProtoMapper.toProto(status)
+                                    : de.kalypzo.agora.proto.v1.ConnectStatus.FAILED)).build()));
         }
 
         @Override

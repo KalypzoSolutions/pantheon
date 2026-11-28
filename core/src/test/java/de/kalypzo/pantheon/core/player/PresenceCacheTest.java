@@ -3,11 +3,13 @@ package de.kalypzo.pantheon.core.player;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import de.kalypzo.pantheon.core.backend.ArrivalHandler;
 import de.kalypzo.pantheon.core.backend.LocationResolver;
 import de.kalypzo.pantheon.core.backend.PresenceBackend;
 import de.kalypzo.pantheon.core.backend.PresenceChange;
 import de.kalypzo.pantheon.data.Subscription;
 import de.kalypzo.pantheon.world.NetworkLocation;
+import de.kalypzo.pantheon.world.TeleportResult;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -142,6 +144,11 @@ class PresenceCacheTest {
             public Subscription onPresenceChanged(Consumer<PresenceChange> l) { hook.add(l); return () -> hook.remove(l); }
             public CompletableFuture<NetworkLocation> location(UUID p) { throw new UnsupportedOperationException(); }
             public void answerLocations(LocationResolver r) { }
+            public CompletableFuture<TeleportResult> teleport(UUID p, String s, NetworkLocation l) {
+                return CompletableFuture.completedFuture(TeleportResult.SERVER_UNAVAILABLE);
+            }
+            public void answerArrivals(ArrivalHandler h) { }
+            public void reportArrival(String id, boolean arrived) { }
         };
         PresenceCache cache = new PresenceCache(backend);
         Set<UUID> idsA = new HashSet<>();
@@ -177,6 +184,11 @@ class PresenceCacheTest {
             public Subscription onPresenceChanged(Consumer<PresenceChange> l) { return () -> unsubscribed.set(true); }
             public CompletableFuture<NetworkLocation> location(UUID p) { throw new UnsupportedOperationException(); }
             public void answerLocations(LocationResolver r) { }
+            public CompletableFuture<TeleportResult> teleport(UUID p, String s, NetworkLocation l) {
+                return CompletableFuture.completedFuture(TeleportResult.SERVER_UNAVAILABLE);
+            }
+            public void answerArrivals(ArrivalHandler h) { }
+            public void reportArrival(String id, boolean arrived) { }
         };
         assertThatThrownBy(() -> new PresenceCache(backend)).isInstanceOf(IllegalStateException.class);
         assertThat(unsubscribed).isTrue();

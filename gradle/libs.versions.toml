@@ -7,7 +7,7 @@ run-paper = "3.0.2"
 shadow = "9.6.1"
 
 # Agora (KalypzoSolutions/agora); a Pantheon release needs a released (non-SNAPSHOT) Agora
-agora = "0.1.0"
+agora = "0.2.0-SNAPSHOT"
 
 # SDK / gRPC
 grpc = "1.74.0"

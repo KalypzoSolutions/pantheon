@@ -6,6 +6,7 @@ import de.kalypzo.pantheon.core.audit.StoredAuditRecord;
 import de.kalypzo.pantheon.core.audit.TimelineResult;
 import de.kalypzo.pantheon.core.audit.TimelineSpec;
 import de.kalypzo.pantheon.core.audit.Viewer;
+import de.kalypzo.pantheon.core.backend.ArrivalHandler;
 import de.kalypzo.pantheon.core.backend.Backend;
 import de.kalypzo.pantheon.core.backend.ConnectionState;
 import de.kalypzo.pantheon.core.backend.Delivered;
@@ -43,6 +44,7 @@ import de.kalypzo.pantheon.data.DuplicateValueException;
 import de.kalypzo.pantheon.data.Subscription;
 import de.kalypzo.pantheon.player.ExpectedOnlinePlayerException;
 import de.kalypzo.pantheon.world.NetworkLocation;
+import de.kalypzo.pantheon.world.TeleportResult;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
@@ -1110,6 +1112,7 @@ public final class InMemoryNetwork implements AutoCloseable {
         private final List<Consumer<ConnectionState>> stateListeners = new CopyOnWriteArrayList<>();
         private volatile @Nullable NodeState nodeState;
         private volatile @Nullable LocationResolver resolver;
+        private volatile @Nullable ArrivalHandler arrivals;
         private volatile ConnectionState state;
         private boolean closed; // guarded by lock
         private boolean partitioned; // guarded by lock; outage(nodeId)
@@ -1311,6 +1314,28 @@ public final class InMemoryNetwork implements AutoCloseable {
         @Override
         public void answerLocations(LocationResolver resolver) {
             this.resolver = Objects.requireNonNull(resolver, "resolver");
+        }
+
+        /** shortcut: no proxy hook yet, so every teleport over the network is SERVER_UNAVAILABLE; T-7 replaces it. */
+        @Override
+        public CompletableFuture<TeleportResult> teleport(UUID player, String server,
+                                                          @Nullable NetworkLocation location) {
+            Objects.requireNonNull(player, "player");
+            Objects.requireNonNull(server, "server");
+            synchronized (lock) {
+                if (offline()) return CompletableFuture.completedFuture(TeleportResult.NETWORK_UNAVAILABLE);
+            }
+            return CompletableFuture.completedFuture(TeleportResult.SERVER_UNAVAILABLE);
+        }
+
+        @Override
+        public void answerArrivals(ArrivalHandler handler) {
+            this.arrivals = Objects.requireNonNull(handler, "handler");
+        }
+
+        @Override
+        public void reportArrival(String requestId, boolean arrived) {
+            Objects.requireNonNull(requestId, "requestId"); // nothing waits for it before T-7
         }
 
         // ----- MessageBackend -----

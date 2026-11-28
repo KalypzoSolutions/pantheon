@@ -6,7 +6,10 @@ group = "de.kalypzo"
 
 repositories {
     mavenCentral()
-    maven("https://repo.papermc.io/repository/maven-public/")
+    maven("https://repo.papermc.io/repository/maven-public/") {
+        // It proxies Central snapshots: an Agora -SNAPSHOT must come from mavenLocal (agora-local), not from there.
+        content { excludeGroup("de.kalypzo") }
+    }
     mavenLocal()
 }
 
