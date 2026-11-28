@@ -6,7 +6,13 @@ public enum CommonMessage implements MessageKey {
     PLAYER_NOT_FOUND("pantheon.player-not-found", MessageType.DENY),
     PLAYERS_ONLY("pantheon.players-only", MessageType.DENY),
     DATA_UNAVAILABLE("pantheon.data-unavailable", MessageType.ERROR),
-    CLICK_TO_CONFIRM("pantheon.click-to-confirm");
+    CLICK_TO_CONFIRM("pantheon.click-to-confirm"),
+    TELEPORT_NOT_ONLINE("pantheon.teleport.not-online", MessageType.DENY),
+    TELEPORT_SERVER_UNAVAILABLE("pantheon.teleport.server-unavailable", MessageType.ERROR),
+    TELEPORT_WORLD_NOT_FOUND("pantheon.teleport.world-not-found", MessageType.ERROR),
+    TELEPORT_CONNECT_FAILED("pantheon.teleport.connect-failed", MessageType.ERROR),
+    TELEPORT_TIMEOUT("pantheon.teleport.timeout", MessageType.ERROR),
+    TELEPORT_NETWORK_UNAVAILABLE("pantheon.teleport.network-unavailable", MessageType.ERROR);
 
     private final String key;
     private final MessageType type;

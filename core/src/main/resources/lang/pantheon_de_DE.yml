@@ -4,6 +4,13 @@ pantheon:
   players-only: "Das können nur Spieler."
   data-unavailable: "Die Spielerdaten sind gerade nicht erreichbar. Bitte versuche es gleich noch einmal."
   click-to-confirm: "<highlight>[Bestätigen]"
+  teleport:
+    not-online: "Der Spieler ist gerade nicht online."
+    server-unavailable: "Der Zielserver ist gerade nicht erreichbar."
+    world-not-found: "Diese Welt gibt es auf dem Zielserver nicht."
+    connect-failed: "Die Verbindung zum Zielserver hat nicht geklappt."
+    timeout: "Der Teleport hat zu lange gedauert und wurde abgebrochen."
+    network-unavailable: "Das Netzwerk ist gerade nicht erreichbar. Bitte versuche es gleich noch einmal."
   time:
     day:
       one: "<count> Tag"
