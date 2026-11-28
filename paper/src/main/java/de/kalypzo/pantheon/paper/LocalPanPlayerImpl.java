@@ -194,19 +194,14 @@ public final class LocalPanPlayerImpl implements LocalPanPlayer {
         // the Bukkit calls run on the main thread; Bukkit rejects NaN and infinite coordinates with an exception
         try {
             return CompletableFuture.supplyAsync(() -> {
-            try {
                 World world = Bukkit.getWorld(location.worldName());
                 if (world == null) return CompletableFuture.completedFuture(TeleportResult.WORLD_NOT_FOUND);
                 return bukkit.teleportAsync(new Location(world, location.x(), location.y(), location.z(),
                         location.yaw(), location.pitch()))
                         .thenApply(ok -> ok ? TeleportResult.OK : TeleportResult.CONNECT_FAILED);
-            } catch (RuntimeException e) {
+            }, mainThread).thenCompose(f -> f).exceptionally(e -> {
                 LOG.log(Level.WARNING, "Teleport von " + uuid + " fehlgeschlagen", e);
-                return CompletableFuture.completedFuture(TeleportResult.CONNECT_FAILED);
-            }
-        }, mainThread).thenCompose(f -> f).exceptionally(e -> {
-            LOG.log(Level.WARNING, "Teleport von " + uuid + " fehlgeschlagen", e);
-            return TeleportResult.CONNECT_FAILED;
+                return TeleportResult.CONNECT_FAILED;
             });
         } catch (RuntimeException e) { // the executor rejected the task (e.g. shutdown)
             LOG.log(Level.WARNING, "Teleport von " + uuid + " fehlgeschlagen", e);
